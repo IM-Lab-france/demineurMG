@@ -13,13 +13,15 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $games;        // Liste des parties en cours
 
     protected $defaultSize = 20;
-    protected $defaultNbMines = 20;
+    protected $difficulty = 0.15;
+    protected $defaultNbMines;
 
 
     public function __construct() {
         $this->clients = new \SplObjectStorage;
         $this->players = [];
         $this->games = [];
+        $this->defaultNbMines = intval($this->defaultSize * $this->defaultSize * $this->difficulty);
     }
 
     public function onOpen(ConnectionInterface $conn) {
