@@ -139,11 +139,42 @@ class MinesweeperServer implements MessageComponentInterface {
         }
     }
 
+    // Fonction pour révéler les cellules adjacentes de manière récursive si elles ont 0 mines adjacentes
+    private function revealAdjacentCells(&$board, $x, $y) {
+        $directions = [
+            [-1, -1], [-1, 0], [-1, 1], // Haut gauche, haut, haut droite
+            [0, -1],         [0, 1],    // Gauche, droite
+            [1, -1], [1, 0], [1, 1]     // Bas gauche, bas, bas droite
+        ];
+
+        foreach ($directions as $dir) {
+            $newX = $x + $dir[0];
+            $newY = $y + $dir[1];
+
+            // Vérifiez si la cellule est dans les limites du plateau
+            if (isset($board[$newX][$newY])) {
+                $cell = $board[$newX][$newY];
+
+                // Révéler la cellule si elle n'est pas encore révélée et n'est pas une mine
+                if (!$cell['revealed'] && !$cell['mine']) {
+                    $board[$newX][$newY]['revealed'] = true;
+
+                    // Si la cellule adjacente a 0 mines, continuer la révélation en cascade
+                    if ($cell['adjacentMines'] == 0) {
+                        $this->revealAdjacentCells($board, $newX, $newY);
+                    }
+                }
+            }
+        }
+    }
+
+
     protected function handleRevealCell(ConnectionInterface $from, $data) {
         $gameId = $data['game_id'];
         $x = $data['x'];
         $y = $data['y'];
-
+    
+        // Vérifier si le jeu existe
         if (!isset($this->games[$gameId])) {
             $from->send(json_encode([
                 'type' => 'error',
@@ -151,7 +182,8 @@ class MinesweeperServer implements MessageComponentInterface {
             ]));
             return;
         }
-
+    
+        // Vérifier si c'est bien le tour du joueur
         if ($this->games[$gameId]['currentTurn'] !== $from->resourceId) {
             $from->send(json_encode([
                 'type' => 'error',
@@ -159,17 +191,27 @@ class MinesweeperServer implements MessageComponentInterface {
             ]));
             return;
         }
-
+    
+        // Vérifier si la cellule n'a pas encore été révélée
         if (!$this->games[$gameId]['board'][$x][$y]['revealed']) {
+            // Révéler la cellule
             $this->games[$gameId]['board'][$x][$y]['revealed'] = true;
-
+    
+            // Si la cellule est une mine, terminer la partie
             if ($this->games[$gameId]['board'][$x][$y]['mine']) {
                 $this->endGame($gameId, $from->resourceId);
                 return;
             }
-
+    
+            // Si la cellule ne contient pas de mines adjacentes, révéler en cascade les cellules adjacentes
+            if ($this->games[$gameId]['board'][$x][$y]['adjacentMines'] == 0) {
+                $this->revealAdjacentCells($this->games[$gameId]['board'], $x, $y);
+            }
+    
+            // Passer au prochain joueur
             $this->games[$gameId]['currentTurn'] = $this->getNextPlayer($gameId);
-
+    
+            // Envoyer la mise à jour du plateau à tous les joueurs
             foreach ($this->games[$gameId]['players'] as $playerId) {
                 $connection = $this->getConnectionFromPlayerId($playerId);
                 if ($connection) {
