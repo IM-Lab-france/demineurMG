@@ -95,6 +95,7 @@
             <button id="declineInviteBtn">Refuser</button>
         </div>
 
+        <p id="currentTurnDisplay"></p>
         <!-- Plateau de jeu -->
         <div id="gameBoard"></div>
     </div>
@@ -248,11 +249,20 @@
                         document.getElementById('availableUser').style.display = 'none';
                         currentGameId = data.game_id;
                         displayGameBoard(data.board);
+
+                        // Afficher le joueur qui commence
+                        currentPlayerDisplay = document.getElementById('currentTurnDisplay');
+                        currentPlayerDisplay.textContent = 'C\'est à ' + data.currentPlayer + ' de commencer.'; // Afficher qui commence
+
+
                         logMessage('Tour actuel: ' + data.turn);
                         break;
 
                     case 'update_board':
                         displayGameBoard(data.board);
+                        // Mettre à jour le nom du joueur dont c'est le tour
+                        currentPlayerDisplay = document.getElementById('currentTurnDisplay');
+                        currentPlayerDisplay.textContent = 'Tour actuel: ' + data.currentPlayer; // Affiche le joueur actuel
                         break;
 
                     case 'invite':
