@@ -1,0 +1,354 @@
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+use Ratchet\MessageComponentInterface;
+use Ratchet\ConnectionInterface;
+use Ratchet\Http\HttpServer;
+use Ratchet\WebSocket\WsServer;
+use Ratchet\Server\IoServer;
+
+class MinesweeperServer implements MessageComponentInterface {
+    protected $clients;
+    protected $players;      // Liste des joueurs connectés
+    protected $games;        // Liste des parties en cours
+
+    public function __construct() {
+        $this->clients = new \SplObjectStorage;
+        $this->players = [];
+        $this->games = [];
+    }
+
+    public function onOpen(ConnectionInterface $conn) {
+        $this->clients->attach($conn);
+        echo "Nouvelle connexion ! ({$conn->resourceId})\n";
+    }
+
+    public function onMessage(ConnectionInterface $from, $msg) {
+        $data = json_decode($msg, true);
+        echo "Message reçu : " . json_encode($data) . "\n";
+
+        switch ($data['type']) {
+            case 'login':
+                $this->handleLogin($from, $data);
+                break;
+
+            case 'invite':
+                $this->handleInvite($from, $data);
+                break;
+
+            case 'accept_invite':
+                $this->handleAcceptInvite($from, $data);
+                break;
+
+            case 'reveal_cell':
+                $this->handleRevealCell($from, $data);
+                break;
+
+            case 'place_flag':
+                $this->handlePlaceFlag($from, $data);
+                break;
+
+            case 'ready_for_new_game':
+                $this->handleReadyForNewGame($from, $data);
+                break;
+
+            case 'logout':
+                $this->handleLogout($from);
+                break;
+
+            case 'refresh_players':
+                $this->sendConnectedPlayersList($from);
+                break;
+        }
+    }
+
+    public function onClose(ConnectionInterface $conn) {
+        $this->clients->detach($conn);
+        unset($this->players[$conn->resourceId]);
+        echo "Connexion {$conn->resourceId} fermée.\n";
+    }
+
+    public function onError(ConnectionInterface $conn, \Exception $e) {
+        echo "Erreur: " . $e->getMessage() . "\n";
+        $conn->close();
+    }
+
+    protected function handleLogin(ConnectionInterface $from, $data) {
+        $username = $data['username'];
+        $this->players[$from->resourceId] = ['id' => $from->resourceId, 'username' => $username];
+        
+        // Envoyer la liste des joueurs connectés
+        $this->sendConnectedPlayersList($from);
+    }
+
+    protected function handleInvite(ConnectionInterface $from, $data) {
+        $inviteeId = $data['invitee'];
+        $fromUser = $this->players[$from->resourceId];
+
+        foreach ($this->clients as $client) {
+            if (isset($this->players[$client->resourceId]) && $this->players[$client->resourceId]['id'] === $inviteeId) {
+                $client->send(json_encode([
+                    'type' => 'invite',
+                    'inviter' => $fromUser['username']
+                ]));
+                return;
+            }
+        }
+
+        // Si l'invité n'est pas trouvé
+        $from->send(json_encode([
+            'type' => 'invite_failed',
+            'message' => 'Joueur non trouvé'
+        ]));
+    }
+
+    protected function handleAcceptInvite(ConnectionInterface $from, $data) {
+        $inviterUsername = $data['inviter'];
+        $inviterConnection = null;
+
+        foreach ($this->clients as $client) {
+            if (isset($this->players[$client->resourceId]) && $this->players[$client->resourceId]['username'] === $inviterUsername) {
+                $inviterConnection = $client;
+                break;
+            }
+        }
+
+        if ($inviterConnection) {
+            // Créer la partie et associer les deux joueurs
+            $gameId = uniqid();
+            $board = $this->generateBoard(10, 10, 20); // Exemple: grille 10x10 avec 20 mines
+            $this->games[$gameId] = [
+                'players' => [$from->resourceId, $inviterConnection->resourceId],
+                'board' => $board,
+                'currentTurn' => $from->resourceId,
+                'ready' => []
+            ];
+
+            foreach ($this->games[$gameId]['players'] as $playerId) {
+                $connection = $this->getConnectionFromPlayerId($playerId);
+                if ($connection) {
+                    $connection->send(json_encode([
+                        'type' => 'game_start',
+                        'game_id' => $gameId,
+                        'board' => $board,
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                    ]));
+                }
+            }
+        }
+    }
+
+    protected function handleRevealCell(ConnectionInterface $from, $data) {
+        $gameId = $data['game_id'];
+        $x = $data['x'];
+        $y = $data['y'];
+
+        if (!isset($this->games[$gameId])) {
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Jeu introuvable'
+            ]));
+            return;
+        }
+
+        if ($this->games[$gameId]['currentTurn'] !== $from->resourceId) {
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Ce n\'est pas votre tour de jouer.'
+            ]));
+            return;
+        }
+
+        if (!$this->games[$gameId]['board'][$x][$y]['revealed']) {
+            $this->games[$gameId]['board'][$x][$y]['revealed'] = true;
+
+            if ($this->games[$gameId]['board'][$x][$y]['mine']) {
+                $this->endGame($gameId, $from->resourceId);
+                return;
+            }
+
+            $this->games[$gameId]['currentTurn'] = $this->getNextPlayer($gameId);
+
+            foreach ($this->games[$gameId]['players'] as $playerId) {
+                $connection = $this->getConnectionFromPlayerId($playerId);
+                if ($connection) {
+                    $connection->send(json_encode([
+                        'type' => 'update_board',
+                        'board' => $this->games[$gameId]['board'],
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                    ]));
+                }
+            }
+        }
+    }
+
+    protected function handlePlaceFlag(ConnectionInterface $from, $data) {
+        $gameId = $data['game_id'];
+        $x = $data['x'];
+        $y = $data['y'];
+
+        if (!isset($this->games[$gameId])) {
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Jeu introuvable'
+            ]));
+            return;
+        }
+
+        $this->games[$gameId]['board'][$x][$y]['flagged'] = !$this->games[$gameId]['board'][$x][$y]['flagged'];
+
+        foreach ($this->games[$gameId]['players'] as $playerId) {
+            $connection = $this->getConnectionFromPlayerId($playerId);
+            if ($connection) {
+                $connection->send(json_encode([
+                    'type' => 'update_board',
+                    'board' => $this->games[$gameId]['board'],
+                    'turn' => $this->games[$gameId]['currentTurn'],
+                    'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                ]));
+            }
+        }
+    }
+
+    protected function handleReadyForNewGame(ConnectionInterface $from, $data) {
+        $gameId = $data['game_id'];
+
+        if (!isset($this->games[$gameId]['ready'])) {
+            $this->games[$gameId]['ready'] = [];
+        }
+
+        $this->games[$gameId]['ready'][] = $from->resourceId;
+
+        if (count($this->games[$gameId]['ready']) === 2) {
+            $board = $this->generateBoard(10, 10, 20);
+            $this->games[$gameId]['board'] = $board;
+            $this->games[$gameId]['ready'] = [];
+            $this->games[$gameId]['currentTurn'] = $this->games[$gameId]['players'][0]; // Réinitialisation du tour
+
+            foreach ($this->games[$gameId]['players'] as $playerId) {
+                $connection = $this->getConnectionFromPlayerId($playerId);
+                if ($connection) {
+                    $connection->send(json_encode([
+                        'type' => 'new_game_start',
+                        'game_id' => $gameId,
+                        'board' => $board,
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                    ]));
+                }
+            }
+        }
+    }
+
+    protected function endGame($gameId, $loserId) {
+        if (!isset($this->games[$gameId])) return;
+
+        $game = $this->games[$gameId];
+        $winnerId = null;
+        foreach ($game['players'] as $playerId) {
+            if ($playerId !== $loserId) {
+                $winnerId = $playerId;
+                break;
+            }
+        }
+
+        foreach ($game['players'] as $playerId) {
+            $connection = $this->getConnectionFromPlayerId($playerId);
+            if ($connection) {
+                $connection->send(json_encode([
+                    'type' => 'game_over',
+                    'winner' => $winnerId === $playerId ? 'Vous avez gagné!' : 'Vous avez perdu!',
+                    'board' => $this->games[$gameId]['board']
+                ]));
+            }
+        }
+
+        unset($this->games[$gameId]);
+    }
+
+    protected function sendConnectedPlayersList(ConnectionInterface $from) {
+        $playersList = $this->getConnectedPlayers();
+        $from->send(json_encode([
+            'type' => 'connected_players',
+            'players' => $playersList
+        ]));
+    }
+
+    protected function getConnectionFromPlayerId($playerId) {
+        foreach ($this->clients as $client) {
+            if ($client->resourceId === $playerId) {
+                return $client;
+            }
+        }
+        return null;
+    }
+
+    protected function getConnectedPlayers() {
+        $players = [];
+        foreach ($this->players as $resourceId => $playerInfo) {
+            $players[] = [
+                'id' => $playerInfo['id'],
+                'username' => $playerInfo['username']
+            ];
+        }
+        return $players;
+    }
+
+    protected function getNextPlayer($gameId) {
+        $game = $this->games[$gameId];
+        $nextPlayer = ($game['currentTurn'] === $game['players'][0]) ? $game['players'][1] : $game['players'][0];
+        $this->games[$gameId]['currentTurn'] = $nextPlayer;
+        return $nextPlayer;
+    }
+
+    protected function generateBoard($width, $height, $numMines) {
+        $board = [];
+
+        for ($x = 0; $x < $width; $x++) {
+            for ($y = 0; $y < $height; $y++) {
+                $board[$x][$y] = [
+                    'mine' => false,
+                    'revealed' => false,
+                    'adjacentMines' => 0,
+                    'flagged' => false
+                ];
+            }
+        }
+
+        $minesPlaced = 0;
+        while ($minesPlaced < $numMines) {
+            $randX = rand(0, $width - 1);
+            $randY = rand(0, $height - 1);
+
+            if (!$board[$randX][$randY]['mine']) {
+                $board[$randX][$randY]['mine'] = true;
+                $minesPlaced++;
+
+                for ($i = -1; $i <= 1; $i++) {
+                    for ($j = -1; $j <= 1; $j++) {
+                        $newX = $randX + $i;
+                        $newY = $randY + $j;
+                        if ($newX >= 0 && $newX < $width && $newY >= 0 && $newY < $height) {
+                            $board[$newX][$newY]['adjacentMines']++;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $board;
+    }
+}
+
+$server = IoServer::factory(
+    new HttpServer(
+        new WsServer(
+            new MinesweeperServer()
+        )
+    ),
+    8080, '192.168.1.170'
+);
+
+$server->run();

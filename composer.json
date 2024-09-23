@@ -1,0 +1,10 @@
+{
+    "name": "demineur/html",
+    "type": "whoops",
+    "license": "MIT",
+    "minimum-stability": "stable",
+    "require": {
+        "filp/whoops": "^2.15",
+        "cboden/ratchet": "^0.4.4"
+    }
+}
