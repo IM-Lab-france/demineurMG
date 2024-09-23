@@ -47,6 +47,9 @@
         #gameBoard {
             margin-bottom: 150px; /* Assurez-vous que le plateau n'écrase pas la div des messages */
         }
+        #plateau {
+            display: none;
+        }
         #winnerModal {
             display: none;
             position: fixed;
@@ -63,6 +66,28 @@
             padding: 20px;
             border-radius: 10px;
             text-align: center;
+        }
+
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 18px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+            z-index: 1000;
+        }
+
+        .popup.show {
+            opacity: 1;
+            visibility: visible;
         }
     </style>
 </head>
@@ -95,9 +120,12 @@
             <button id="declineInviteBtn">Refuser</button>
         </div>
 
-        <p id="currentTurnDisplay"></p>
+        
         <!-- Plateau de jeu -->
-        <div id="gameBoard"></div>
+         <div id="plateau">
+            <p id="currentTurnDisplay"></p>
+            <div id="gameBoard"></div>
+        </div>
     </div>
 
     <div id="winnerModal">
@@ -106,6 +134,8 @@
             <button id="closeModalBtn">Fermer</button>
         </div>
     </div>
+
+    <div id="notYourTurnPopup" class="popup">Ce n'est pas à vous de jouer</div>
 
     <!-- Div pour afficher les messages WebSocket -->
     <div id="messages"></div>
@@ -205,7 +235,19 @@
             const gameBoardDiv = document.getElementById('gameBoard');
             gameBoardDiv.innerHTML = '';  // Supprimer tout le contenu du plateau de jeu
             logMessage('Le plateau de jeu a été vidé.');
-}
+        }
+
+        function showNotYourTurnPopup() {
+            const popup = document.getElementById('notYourTurnPopup');
+            
+            // Ajouter la classe 'show' pour afficher la popin
+            popup.classList.add('show');
+            
+            // Retirer la classe 'show' après 2 secondes pour la faire disparaître
+            setTimeout(() => {
+                popup.classList.remove('show');
+            }, 2000); // Affiche la popin pendant 2 secondes
+        }
 
         // Connexion WebSocket
         function connectWebSocket() {
@@ -247,6 +289,7 @@
                     case 'game_start':
                         // Stocker le game_id pour les futures actions
                         document.getElementById('availableUser').style.display = 'none';
+                        document.getElementById('plateau').style.display = 'block';
                         currentGameId = data.game_id;
                         displayGameBoard(data.board);
 
@@ -282,6 +325,9 @@
                         break;
 
                     case 'error':
+                    if (data.message === "Ce n'est pas votre tour de jouer.") {
+                            showNotYourTurnPopup();
+                        }
                         logMessage('Erreur: ' + data.message);
                         break;
 
@@ -349,6 +395,7 @@
         document.getElementById('closeModalBtn').addEventListener('click', () => {
             document.getElementById('winnerModal').style.display = 'none';
             document.getElementById('availableUser').style.display = 'block';
+            document.getElementById('plateau').style.display = 'none';
             clearGameBoard();
             socket.send(JSON.stringify({
                 type: 'ready_for_new_game',
