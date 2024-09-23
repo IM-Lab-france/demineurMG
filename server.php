@@ -12,6 +12,10 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $players;      // Liste des joueurs connectés
     protected $games;        // Liste des parties en cours
 
+    protected $defaultSize = 20;
+    protected $defaultNbMines = 20;
+
+
     public function __construct() {
         $this->clients = new \SplObjectStorage;
         $this->players = [];
@@ -139,7 +143,7 @@ class MinesweeperServer implements MessageComponentInterface {
         if ($inviterConnection) {
             // Créer la partie et associer les deux joueurs
             $gameId = uniqid();
-            $board = $this->generateBoard(10, 10, 20); // Exemple: grille 10x10 avec 20 mines
+            $board = $this->generateBoard($this->defaultSize, $this->defaultSize, $this->defaultNbMines); // Exemple: grille 10x10 avec 20 mines
             $this->games[$gameId] = [
                 'players' => [$from->resourceId, $inviterConnection->resourceId],
                 'board' => $board,
@@ -287,7 +291,7 @@ class MinesweeperServer implements MessageComponentInterface {
         $this->games[$gameId]['ready'][] = $from->resourceId;
 
         if (count($this->games[$gameId]['ready']) === 2) {
-            $board = $this->generateBoard(10, 10, 20);
+            $board = $this->generateBoard($this->defaultSize, $this->defaultSize, $this->defaultNbMines);
             $this->games[$gameId]['board'] = $board;
             $this->games[$gameId]['ready'] = [];
             $this->games[$gameId]['currentTurn'] = $this->games[$gameId]['players'][0]; // Réinitialisation du tour

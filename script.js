@@ -178,6 +178,9 @@ function connectWebSocket() {
                 showWinnerModal(data.winner, data.game_id);
                 
                 break;
+            case 'logout_success':
+                handleLogoutSuccess(data);
+                break;
 
             case 'error':
             if (data.message === "Ce n'est pas votre tour de jouer.") {
@@ -193,6 +196,19 @@ function connectWebSocket() {
     socket.onclose = function() {
         logMessage('WebSocket fermé');
     };
+}
+
+function handleLogoutSuccess(data) {
+    if (data.username === username) {
+        // Le joueur qui a initié la déconnexion doit être redirigé vers l'écran de connexion
+        document.getElementById('game').style.display = 'none';
+        document.getElementById('login').style.display = 'block';
+        logMessage('Vous avez été déconnecté.');
+    } else {
+        // Un autre joueur a été déconnecté, mettre à jour la liste des utilisateurs
+        updatePlayerList(data.players);
+        logMessage(data.username + ' a été déconnecté.');
+    }
 }
 
 // Rafraîchir la liste des joueurs connectés
@@ -237,6 +253,7 @@ function placeFlag(x, y) {
     }
 }
 
+
 // Afficher le modal du gagnant
 function showWinnerModal(winnerMessage, gameId) {
     currentGameId = gameId;
@@ -244,6 +261,7 @@ function showWinnerModal(winnerMessage, gameId) {
     const message = document.getElementById('winnerMessage');
     message.textContent = winnerMessage;
     modal.style.display = 'flex';
+    
 }
 
 // Fermer la modale du gagnant
