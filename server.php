@@ -81,6 +81,29 @@ class MinesweeperServer implements MessageComponentInterface {
         $this->sendConnectedPlayersList($from);
     }
 
+    protected function handleLogout(ConnectionInterface $from) {
+        // Si le joueur est déjà déconnecté ou introuvable
+        if (!isset($this->players[$from->resourceId])) {
+            return;
+        }
+    
+        // Retirer le joueur de la liste des joueurs connectés
+        unset($this->players[$from->resourceId]);
+    
+        // Informer les autres joueurs que la liste des joueurs disponibles a changé
+        foreach ($this->clients as $client) {
+            $this->sendConnectedPlayersList($client);  // Mettre à jour la liste des joueurs
+        }
+    
+        // Déconnecter la session du joueur
+        $from->send(json_encode([
+            'type' => 'logout_success',
+            'message' => 'Déconnexion réussie'
+        ]));
+        
+        echo "Joueur {$from->resourceId} déconnecté.\n";
+    }
+    
     protected function handleInvite(ConnectionInterface $from, $data) {
         $inviteeId = $data['invitee'];
         $fromUser = $this->players[$from->resourceId];
