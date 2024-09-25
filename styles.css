@@ -113,6 +113,14 @@ body {
     color: gray;
 }
 
+.flag-player-1 {
+    color: red; /* Couleur du drapeau pour le joueur 1 */
+}
+
+.flag-player-2 {
+    color: blue; /* Couleur du drapeau pour le joueur 2 */
+}
+
 table {
     border-collapse: collapse;
 }
@@ -196,7 +204,7 @@ td.revealed {
     align-items: center;
 }
 #winnerModalContent {
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0.5);
     padding: 20px;
     border-radius: 10px;
     text-align: center;

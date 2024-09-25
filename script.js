@@ -92,6 +92,10 @@ function connectWebSocket() {
                 // Fin de partie et affichage du gagnant
                 displayGameBoard(data.board);
                 showWinnerModal(data.winner, data.game_id);
+            
+                // Révéler toutes les cellules (mines et chiffres)
+                revealAllCells(data.board);
+
                 break;
                 // Ajout de la gestion de la déconnexion d'un joueur
             case 'player_disconnected':
@@ -118,6 +122,17 @@ function connectWebSocket() {
 
         location.reload();
     };
+}
+
+function revealAllCells(board) {
+    board.forEach((row, x) => {
+        row.forEach((cell, y) => {
+            cell.revealed = true; // Marquer chaque cellule comme révélée
+        });
+    });
+
+    // Après avoir marqué toutes les cellules comme révélées, on réaffiche le plateau
+    displayGameBoard(board);
 }
 
 // Rafraîchir la liste des joueurs connectés
