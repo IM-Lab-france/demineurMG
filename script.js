@@ -221,10 +221,17 @@ function displayGameBoard(board) {
 
             if (cell.revealed) {
                 td.classList.add('revealed');
-                td.textContent = cell.mine ? '💣' : (cell.adjacentMines || '');
+                if (cell.mine) {
+                    td.textContent = '💣'; // Afficher la mine
+                } else if (cell.adjacentMines > 0) {
+                    td.textContent = cell.adjacentMines; // Afficher le nombre de mines adjacentes
+                    
+                    // Ajouter une classe pour la couleur du nombre de mines
+                    td.classList.add(`mine-number-${cell.adjacentMines}`);
+                }
             } else if (cell.flagged) {
                 td.classList.add('flag');
-                td.textContent = '🚩';
+                td.textContent = '🚩'; // Afficher le drapeau
             }
 
             // Gestion des clics (révélation des cases)
@@ -379,6 +386,29 @@ document.getElementById('logoutLink').addEventListener('click', () => {
 
 document.getElementById('acceptInviteBtn').addEventListener('click', acceptInvite);
 document.getElementById('declineInviteBtn').addEventListener('click', declineInvite);
+
+
+
+// Sélectionner les éléments du menu burger et des liens
+const navbarToggler = document.querySelector('.navbar-toggler');
+const navbarCollapse = document.querySelector('.navbar-collapse');
+const navLinks = document.querySelectorAll('.nav-link');
+
+// Fonction pour masquer le menu burger
+function hideMenu() {
+    if (navbarCollapse.classList.contains('show')) {
+        navbarToggler.click();  // Simule un clic sur le bouton du burger pour fermer le menu
+    }
+}
+
+// Cacher le menu burger lorsque l'on clique sur un lien de navigation
+navLinks.forEach(link => {
+    link.addEventListener('click', hideMenu);
+});
+
+// Cacher le menu burger lorsque l'on perd le focus
+navbarToggler.addEventListener('blur', hideMenu);
+
 
 // Démarrer la connexion WebSocket lors du chargement de la page
 window.onload = function() {

@@ -81,6 +81,38 @@ body {
     display: none; /* Masquer par défaut */
 }
 
+.mine-number-1 {
+    color: blue;
+}
+
+.mine-number-2 {
+    color: green;
+}
+
+.mine-number-3 {
+    color: red;
+}
+
+.mine-number-4 {
+    color: purple;
+}
+
+.mine-number-5 {
+    color: brown;
+}
+
+.mine-number-6 {
+    color: cyan;
+}
+
+.mine-number-7 {
+    color: black;
+}
+
+.mine-number-8 {
+    color: gray;
+}
+
 table {
     border-collapse: collapse;
 }
