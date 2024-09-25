@@ -7,6 +7,8 @@ use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
 use Ratchet\Server\IoServer;
 
+require 'db.php';
+
 class MinesweeperServer implements MessageComponentInterface {
     protected $clients;
     protected $players;      // Liste des joueurs connectés
@@ -34,6 +36,10 @@ class MinesweeperServer implements MessageComponentInterface {
         echo "Message reçu : " . json_encode($data) . "\n";
 
         switch ($data['type']) {
+            case 'register':
+                $this->handleRegister($from, $data);
+                break;
+            
             case 'login':
                 $this->handleLogin($from, $data);
                 break;
@@ -80,19 +86,75 @@ class MinesweeperServer implements MessageComponentInterface {
         $conn->close();
     }
 
+    protected function handleRegister(ConnectionInterface $from, $data) {
+        $username = $data['username'];
+        $password = $data['password']; // Mot de passe en clair reçu du client
+    
+        // Utilisation de la base de données pour vérifier si le nom d'utilisateur existe déjà
+        $db = new Database();
+        $stmt = $db->getPDO()->prepare("SELECT * FROM users WHERE username = :username");
+        $stmt->bindParam(':username', $username);
+        $stmt->execute();
+        $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+        if ($existingUser) {
+            // L'utilisateur avec ce login existe déjà
+            $from->send(json_encode([
+                'type' => 'register_failed',
+                'message' => 'Nom d\'utilisateur déjà pris.'
+            ]));
+        } else {
+            // L'utilisateur n'existe pas encore, on peut procéder à l'enregistrement
+    
+            // Hacher le mot de passe avec bcrypt
+            $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+    
+            // Insérer le nouvel utilisateur dans la base de données
+            $stmt = $db->getPDO()->prepare("
+                INSERT INTO users (username, password_hash, created_at)
+                VALUES (:username, :password_hash, NOW())
+            ");
+            $stmt->bindParam(':username', $username);
+            $stmt->bindParam(':password_hash', $passwordHash);
+            $stmt->execute();
+    
+            // Confirmation de l'enregistrement
+            $from->send(json_encode([
+                'type' => 'register_success',
+                'message' => 'Enregistrement réussi. Vous pouvez vous connecter.'
+            ]));
+        }
+    }
+    
     protected function handleLogin(ConnectionInterface $from, $data) {
         $username = $data['username'];
-        $this->players[$from->resourceId] = ['id' => $from->resourceId, 'username' => $username];
-        
-        $from->send(json_encode([
-            'type' => 'login_success',
-            'playerId' => $from->resourceId,  // Envoi de l'ID du joueur
-            'username' => $username,
-            'players' => $this->getConnectedPlayers()
-        ]));
-
-        // Envoyer la liste des joueurs connectés
-        $this->sendConnectedPlayersList($from);
+        $password = $data['password']; // Mot de passe en clair reçu du client
+    
+        // Utilisation de la base de données pour récupérer les informations de l'utilisateur
+        $db = new Database();
+        $user = $db->getUserByUsername($username);
+    
+        // Vérifier si l'utilisateur existe et si le mot de passe correspond
+        if ($user && password_verify($password, $user['password_hash'])) {
+            // Connexion réussie
+            $this->players[$from->resourceId] = ['id' => $user['id'], 'username' => $username];
+    
+            $from->send(json_encode([
+                'type' => 'login_success',
+                'playerId' => $user['id'],  // Envoi de l'ID du joueur
+                'username' => $username,
+                'players' => $this->getConnectedPlayers()
+            ]));
+    
+            // Envoyer la liste des joueurs connectés
+            $this->sendConnectedPlayersList($from);
+        } else {
+            // Échec de la connexion
+            $from->send(json_encode([
+                'type' => 'login_failed',
+                'message' => 'Login ou mot de passe incorrect.'
+            ]));
+        }
     }
 
     protected function handleLogout(ConnectionInterface $from) {

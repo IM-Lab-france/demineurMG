@@ -14,4 +14,9 @@ class Database {
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC); // Retourne un tableau associatif contenant les infos de l'utilisateur
     }
+
+    // Nouvelle méthode pour obtenir l'instance PDO
+    public function getPDO() {
+        return $this->pdo;
+    }
 }

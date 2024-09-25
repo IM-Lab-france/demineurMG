@@ -116,9 +116,6 @@ function connectWebSocket() {
 function refreshPlayersList(players) {
     const playersList = document.getElementById('players');
     playersList.innerHTML = '';
-    
-    console.log("currentPlayerId : "+currentPlayerId);
-    // Filtrer la liste des joueurs pour exclure le joueur actuel
     const filteredPlayers = players.filter(player => player.id !== currentPlayerId);
 
     if (filteredPlayers.length === 0) {
@@ -268,6 +265,28 @@ function showWinnerModal(winnerMessage, gameId) {
     
 }
 
+function hashPassword(password) {
+    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex); // Hachage en SHA-256 et conversion en hexadécimal
+}
+
+async function sendLogin(username, password) {
+    const hashedPassword = hashPassword(password); // Crypter le mot de passe
+    socket.send(JSON.stringify({
+        type: 'login',
+        username: username,
+        password: hashedPassword // Envoi du mot de passe crypté
+    }));
+}
+
+async function sendRegistern(username, password) {
+    const hashedPassword = hashPassword(password); // Crypter le mot de passe
+    socket.send(JSON.stringify({
+        type: 'register',
+        username: username,
+        password: hashedPassword // Envoi du mot de passe crypté
+    }));
+}
+
 // Fermer la modale du gagnant
 document.getElementById('closeModalBtn').addEventListener('click', () => {
     document.getElementById('winnerModal').style.display = 'none';
@@ -281,26 +300,18 @@ document.getElementById('closeModalBtn').addEventListener('click', () => {
 });
 
 // Gestion des événements de connexion et déconnexion
-document.getElementById('loginBtn').addEventListener('click', () => {
-    username = document.getElementById('username').value;
+document.getElementById('loginBtn').addEventListener('click', async () => {
+    const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    socket.send(JSON.stringify({
-        type: 'login',
-        username: username,
-        password: password
-    }));
+    await sendLogin(username, password); // Envoyer les informations de login au serveur
     logMessage('Tentative de connexion pour ' + username);
     connected = true;
 });
 
-document.getElementById('registerBtn').addEventListener('click', () => {
-    username = document.getElementById('username').value;
+document.getElementById('registerBtn').addEventListener('click', async () => {
+    const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    socket.send(JSON.stringify({
-        type: 'register',
-        username: username,
-        password: password
-    }));
+    await sendRegistern(username, password); // Envoyer les informations de login au serveur
     logMessage('Tentative de création de compte pour ' + username);
 });
 
