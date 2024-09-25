@@ -12,8 +12,8 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $players;      // Liste des joueurs connectés
     protected $games;        // Liste des parties en cours
 
-    protected $defaultSize = 10;
-    protected $difficulty = 0.10;
+    protected $defaultSize = 20;
+    protected $difficulty = 0.01;
     protected $defaultNbMines;
 
 
@@ -68,10 +68,11 @@ class MinesweeperServer implements MessageComponentInterface {
         }
     }
 
-    public function onClose(ConnectionInterface $conn) {
-        $this->clients->detach($conn);
-        unset($this->players[$conn->resourceId]);
-        echo "Connexion {$conn->resourceId} fermée.\n";
+    public function onClose(ConnectionInterface $from) {
+        $this->clients->detach($from);
+        unset($this->players[$from->resourceId]);
+        echo "Connexion {$from->resourceId} fermée.\n";
+        $this->sendConnectedPlayersList($from);
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e) {
@@ -83,6 +84,13 @@ class MinesweeperServer implements MessageComponentInterface {
         $username = $data['username'];
         $this->players[$from->resourceId] = ['id' => $from->resourceId, 'username' => $username];
         
+        $from->send(json_encode([
+            'type' => 'login_success',
+            'playerId' => $from->resourceId,  // Envoi de l'ID du joueur
+            'username' => $username,
+            'players' => $this->getConnectedPlayers()
+        ]));
+
         // Envoyer la liste des joueurs connectés
         $this->sendConnectedPlayersList($from);
     }
@@ -97,9 +105,9 @@ class MinesweeperServer implements MessageComponentInterface {
         unset($this->players[$from->resourceId]);
     
         // Informer les autres joueurs que la liste des joueurs disponibles a changé
-        foreach ($this->clients as $client) {
-            $this->sendConnectedPlayersList($client);  // Mettre à jour la liste des joueurs
-        }
+        
+        $this->sendConnectedPlayersList($from);  // Mettre à jour la liste des joueurs
+        
     
         // Déconnecter la session du joueur
         $from->send(json_encode([
@@ -165,6 +173,7 @@ class MinesweeperServer implements MessageComponentInterface {
                     ]));
                 }
             }
+            $this->sendConnectedPlayersList($from);
         }
     }
 
@@ -197,7 +206,6 @@ class MinesweeperServer implements MessageComponentInterface {
         }
     }
 
-
     protected function handleRevealCell(ConnectionInterface $from, $data) {
         $gameId = $data['game_id'];
         $x = $data['x'];
@@ -228,7 +236,7 @@ class MinesweeperServer implements MessageComponentInterface {
     
             // Si la cellule est une mine, terminer la partie
             if ($this->games[$gameId]['board'][$x][$y]['mine']) {
-                $this->endGame($gameId, $from->resourceId);
+                $this->endGame($from, $gameId, $from->resourceId);
                 return;
             }
     
@@ -237,6 +245,23 @@ class MinesweeperServer implements MessageComponentInterface {
                 $this->revealAdjacentCells($this->games[$gameId]['board'], $x, $y);
             }
     
+            
+            if ($this->checkForDraw($gameId)) {
+                // Si toutes les cases sans mines sont révélées, égalité
+                foreach ($this->games[$gameId]['players'] as $playerId) {
+                    $connection = $this->getConnectionFromPlayerId($playerId);
+                    if ($connection) {
+                        $connection->send(json_encode([
+                            'type' => 'game_over',
+                            'winner' => 'Egalité',
+                            'board' => $this->games[$gameId]['board']
+                        ]));
+                    }
+                }
+                unset($this->games[$gameId]);
+                return;
+            }
+
             // Passer au prochain joueur
             $this->games[$gameId]['currentTurn'] = $this->getNextPlayer($gameId);
     
@@ -313,7 +338,18 @@ class MinesweeperServer implements MessageComponentInterface {
         }
     }
 
-    protected function endGame($gameId, $loserId) {
+    protected function checkForDraw($gameId) {
+        foreach ($this->games[$gameId]['board'] as $row) {
+            foreach ($row as $cell) {
+                if (!$cell['mine'] && !$cell['revealed']) {
+                    return false; // Si une case non mine n'est pas révélée, pas d'égalité
+                }
+            }
+        }
+        return true; // Toutes les cases sans mines sont révélées
+    }
+
+    protected function endGame(ConnectionInterface $from, $gameId, $loserId) {
         if (!isset($this->games[$gameId])) return;
 
         $game = $this->games[$gameId];
@@ -335,16 +371,20 @@ class MinesweeperServer implements MessageComponentInterface {
                 ]));
             }
         }
-
+        // Envoyer la liste des joueurs connectés
+        $this->sendConnectedPlayersList($from);
         unset($this->games[$gameId]);
     }
 
     protected function sendConnectedPlayersList(ConnectionInterface $from) {
         $playersList = $this->getConnectedPlayers();
-        $from->send(json_encode([
-            'type' => 'connected_players',
-            'players' => $playersList
-        ]));
+        foreach ($this->clients as $client) {
+            $client->send(json_encode([
+                'type' => 'connected_players',
+                'playerId' => $from->resourceId,
+                'players' => $playersList
+            ]));
+        }
     }
 
     protected function getConnectionFromPlayerId($playerId) {
@@ -359,10 +399,23 @@ class MinesweeperServer implements MessageComponentInterface {
     protected function getConnectedPlayers() {
         $players = [];
         foreach ($this->players as $resourceId => $playerInfo) {
-            $players[] = [
-                'id' => $playerInfo['id'],
-                'username' => $playerInfo['username']
-            ];
+            $inGame = false;
+
+            // Vérifier si le joueur est déjà dans une partie
+            foreach ($this->games as $game) {
+                if (in_array($resourceId, $game['players'])) {
+                    $inGame = true;
+                    break;
+                }
+            }
+
+            // Si le joueur n'est pas en jeu, on l'ajoute à la liste
+            if (!$inGame) {
+                $players[] = [
+                    'id' => $playerInfo['id'],
+                    'username' => $playerInfo['username']
+                ];
+            }
         }
         return $players;
     }

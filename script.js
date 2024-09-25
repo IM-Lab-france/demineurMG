@@ -1,6 +1,9 @@
 let socket;
 let username;
 let currentGameId;
+let refreshInterval;
+let connected = false;
+let currentPlayerId;
 
 // Fonction pour afficher les messages WebSocket dans la div messages
 function logMessage(message) {
@@ -8,22 +11,129 @@ function logMessage(message) {
     const messageElement = document.createElement('p');
     messageElement.textContent = message;
     messageDiv.appendChild(messageElement);
-
+    console.log(message);
     // Faire défiler automatiquement vers le bas quand un nouveau message est ajouté
     messageDiv.scrollTop = messageDiv.scrollHeight;
 }
 
-// Afficher la liste des joueurs disponibles
-function updatePlayerList(players) {
+// Connexion WebSocket
+function connectWebSocket() {
+    socket = new WebSocket('ws://192.168.1.170:8080');
+
+    socket.onopen = function() {
+        logMessage('WebSocket ouvert');
+    };
+
+    socket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        logMessage('Message reçu du serveur: ' + JSON.stringify(data));
+
+        switch (data.type) {
+            case 'login_failed':
+                // Afficher le message d'erreur et réinitialiser les inputs
+                document.getElementById('loginError').textContent = 'Login ou mot de passe incorrect.';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                break;
+
+            case 'login_success':
+                currentPlayerId = data.playerId; 
+                // Masquer la section de connexion et afficher la liste des joueurs
+                document.getElementById('login').style.display = 'none';
+                document.getElementById('game').style.display = 'block';
+                document.getElementById('userDisplay').textContent = data.username;
+                refreshPlayersList(data.players);
+                break;
+
+            case 'connected_players':
+                
+                // Rafraîchir la liste des joueurs connectés
+                refreshPlayersList(data.players);
+                break;
+
+            case 'game_start':
+
+                // Stocker le game_id pour les futures actions
+                document.getElementById('availableUser').style.display = 'none';
+                document.getElementById('plateau').style.display = 'block';
+                currentGameId = data.game_id;
+                displayGameBoard(data.board);
+
+                // Afficher le joueur qui commence
+                currentPlayerDisplay = document.getElementById('currentTurnDisplay');
+                currentPlayerDisplay.textContent = 'C\'est à ' + data.currentPlayer + ' de commencer.'; // Afficher qui commence
+
+
+                logMessage('Tour actuel: ' + data.turn);
+                break;
+
+            case 'update_board':
+                displayGameBoard(data.board);
+                // Mettre à jour le nom du joueur dont c'est le tour
+                currentPlayerDisplay = document.getElementById('currentTurnDisplay');
+                currentPlayerDisplay.textContent = 'Tour actuel: ' + data.currentPlayer; // Affiche le joueur actuel
+                break;
+
+            case 'invite':
+                document.getElementById('inviter').textContent = data.inviter;
+                document.getElementById('invitation').style.display = 'block';
+                break;
+
+            case 'invite_declined':
+                logMessage('Invitation refusée par le joueur.');
+                break;
+
+            case 'game_over':
+                // Fin de partie et affichage du gagnant
+                displayGameBoard(data.board);
+                showWinnerModal(data.winner, data.game_id);
+                
+                break;
+            case 'logout_success':
+                handleLogoutSuccess(data);
+                break;
+
+            case 'error':
+            if (data.message === "Ce n'est pas votre tour de jouer.") {
+                    showNotYourTurnPopup();
+                }
+                logMessage('Erreur: ' + data.message);
+                break;
+
+            // Autres types de messages...
+        }
+    };
+
+    socket.onclose = function() {
+        logMessage('WebSocket fermé');
+
+        location.reload();
+    };
+}
+
+// Rafraîchir la liste des joueurs connectés
+function refreshPlayersList(players) {
     const playersList = document.getElementById('players');
     playersList.innerHTML = '';
-    players.forEach(player => {
+    
+    console.log("currentPlayerId : "+currentPlayerId);
+    // Filtrer la liste des joueurs pour exclure le joueur actuel
+    const filteredPlayers = players.filter(player => player.id !== currentPlayerId);
+
+    if (filteredPlayers.length === 0) {
+        // Si aucun autre joueur en ligne, afficher le message
         const li = document.createElement('li');
-        li.textContent = player.username;
-        li.dataset.playerId = player.id;
-        li.addEventListener('click', () => invitePlayer(player.id));
+        li.textContent = 'Aucun joueur en ligne';
         playersList.appendChild(li);
-    });
+    } else {
+        filteredPlayers.forEach(player => {
+            const li = document.createElement('li');
+            li.textContent = player.username;
+            li.dataset.playerId = player.id;
+            li.addEventListener('click', () => invitePlayer(player.id));
+            playersList.appendChild(li);
+        });
+    }
 }
 
 // Gestion des invitations
@@ -104,100 +214,6 @@ function showNotYourTurnPopup() {
     }, 2000); // Affiche la popin pendant 2 secondes
 }
 
-// Connexion WebSocket
-function connectWebSocket() {
-    socket = new WebSocket('ws://192.168.1.170:8080');
-
-    socket.onopen = function() {
-        logMessage('WebSocket ouvert');
-    };
-
-    socket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        logMessage('Message reçu du serveur: ' + JSON.stringify(data));
-
-        switch (data.type) {
-            case 'login_failed':
-                // Afficher le message d'erreur et réinitialiser les inputs
-                document.getElementById('loginError').textContent = 'Login ou mot de passe incorrect.';
-                document.getElementById('username').value = '';
-                document.getElementById('password').value = '';
-                break;
-
-            case 'login_success':
-                // Masquer la section de connexion et afficher la liste des joueurs
-                document.getElementById('login').style.display = 'none';
-                document.getElementById('game').style.display = 'block';
-                document.getElementById('userDisplay').textContent = data.username;
-                updatePlayerList(data.players);
-                break;
-
-            case 'connected_players':
-                // Masquer la section de connexion et afficher la liste des joueurs
-                document.getElementById('login').style.display = 'none';
-                document.getElementById('game').style.display = 'block';
-                document.getElementById('userDisplay').textContent = data.username;
-                // Rafraîchir la liste des joueurs connectés
-                refreshPlayersList(data.players);
-                break;
-
-            case 'game_start':
-                // Stocker le game_id pour les futures actions
-                document.getElementById('availableUser').style.display = 'none';
-                document.getElementById('plateau').style.display = 'block';
-                currentGameId = data.game_id;
-                displayGameBoard(data.board);
-
-                // Afficher le joueur qui commence
-                currentPlayerDisplay = document.getElementById('currentTurnDisplay');
-                currentPlayerDisplay.textContent = 'C\'est à ' + data.currentPlayer + ' de commencer.'; // Afficher qui commence
-
-
-                logMessage('Tour actuel: ' + data.turn);
-                break;
-
-            case 'update_board':
-                displayGameBoard(data.board);
-                // Mettre à jour le nom du joueur dont c'est le tour
-                currentPlayerDisplay = document.getElementById('currentTurnDisplay');
-                currentPlayerDisplay.textContent = 'Tour actuel: ' + data.currentPlayer; // Affiche le joueur actuel
-                break;
-
-            case 'invite':
-                document.getElementById('inviter').textContent = data.inviter;
-                document.getElementById('invitation').style.display = 'block';
-                break;
-
-            case 'invite_declined':
-                logMessage('Invitation refusée par le joueur.');
-                break;
-
-            case 'game_over':
-                // Fin de partie et affichage du gagnant
-                displayGameBoard(data.board);
-                showWinnerModal(data.winner, data.game_id);
-                
-                break;
-            case 'logout_success':
-                handleLogoutSuccess(data);
-                break;
-
-            case 'error':
-            if (data.message === "Ce n'est pas votre tour de jouer.") {
-                    showNotYourTurnPopup();
-                }
-                logMessage('Erreur: ' + data.message);
-                break;
-
-            // Autres types de messages...
-        }
-    };
-
-    socket.onclose = function() {
-        logMessage('WebSocket fermé');
-    };
-}
-
 function handleLogoutSuccess(data) {
     if (data.username === username) {
         // Le joueur qui a initié la déconnexion doit être redirigé vers l'écran de connexion
@@ -209,19 +225,6 @@ function handleLogoutSuccess(data) {
         updatePlayerList(data.players);
         logMessage(data.username + ' a été déconnecté.');
     }
-}
-
-// Rafraîchir la liste des joueurs connectés
-function refreshPlayersList(players) {
-    const playersList = document.getElementById('players');
-    playersList.innerHTML = '';
-    players.forEach(player => {
-        const li = document.createElement('li');
-        li.textContent = player.username;
-        li.dataset.playerId = player.id;
-        li.addEventListener('click', () => invitePlayer(player.id));
-        playersList.appendChild(li);
-    });
 }
 
 // Gestion des cellules
@@ -253,7 +256,6 @@ function placeFlag(x, y) {
     }
 }
 
-
 // Afficher le modal du gagnant
 function showWinnerModal(winnerMessage, gameId) {
     currentGameId = gameId;
@@ -271,7 +273,7 @@ document.getElementById('closeModalBtn').addEventListener('click', () => {
     document.getElementById('plateau').style.display = 'none';
     clearGameBoard();
     socket.send(JSON.stringify({
-        type: 'ready_for_new_game',
+        type: 'refresh_players',
         game_id: currentGameId
     }));
 });
@@ -286,6 +288,7 @@ document.getElementById('loginBtn').addEventListener('click', () => {
         password: password
     }));
     logMessage('Tentative de connexion pour ' + username);
+    connected = true;
 });
 
 document.getElementById('registerBtn').addEventListener('click', () => {
@@ -305,6 +308,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     document.getElementById('login').style.display = 'block';
     document.getElementById('game').style.display = 'none';
     logMessage('Déconnexion de ' + username);
+    connected = false;
 });
 
 document.getElementById('acceptInviteBtn').addEventListener('click', acceptInvite);
