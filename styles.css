@@ -76,6 +76,11 @@ body {
     transform: scale(1.05); /* Agrandit légèrement l'élément pour attirer l'attention */
     cursor: pointer; /* Change l'icône du curseur sur survol */
 }
+
+#welcomeMessage, #logoutLink {
+    display: none; /* Masquer par défaut */
+}
+
 table {
     border-collapse: collapse;
 }

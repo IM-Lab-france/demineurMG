@@ -44,6 +44,8 @@ function connectWebSocket() {
                 document.getElementById('game').style.display = 'block';
                 document.getElementById('navbarUserDisplay').textContent = data.username;
                 document.getElementById('navbar').style.display = 'block';
+                document.getElementById('welcomeMessage').style.display = 'block';
+                document.getElementById('logoutLink').style.display = 'block';
                 refreshPlayersList(data.players);
                 break;
 
@@ -366,6 +368,8 @@ document.getElementById('registerBtn').addEventListener('click', async () => {
 document.getElementById('logoutLink').addEventListener('click', () => {
     clearGameBoard(); 
     socket.send(JSON.stringify({ type: 'logout' }));
+    document.getElementById('welcomeMessage').style.display = 'none';
+    document.getElementById('logoutLink').style.display = 'none';
     document.getElementById('login').style.display = 'block';
     document.getElementById('game').style.display = 'none';
     document.getElementById('navbar').style.display = 'none';
