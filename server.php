@@ -12,8 +12,8 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $players;      // Liste des joueurs connectés
     protected $games;        // Liste des parties en cours
 
-    protected $defaultSize = 20;
-    protected $difficulty = 0.15;
+    protected $defaultSize = 10;
+    protected $difficulty = 0.10;
     protected $defaultNbMines;
 
 
@@ -375,6 +375,7 @@ class MinesweeperServer implements MessageComponentInterface {
     }
 
     protected function generateBoard($width, $height, $numMines) {
+        
         $board = [];
 
         for ($x = 0; $x < $width; $x++) {
