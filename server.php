@@ -567,6 +567,7 @@ class MinesweeperServer implements MessageComponentInterface {
         $stmt->bindParam(':id', $playerId);
         $stmt->execute();
     }
+    
     protected function sendConnectedPlayersList(ConnectionInterface $from) {
         $playersList = $this->getConnectedPlayers();
         foreach ($this->clients as $client) {
