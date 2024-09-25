@@ -1,15 +1,80 @@
 /* Simple CSS pour styliser l'interface */
 body {
     font-family: Arial, sans-serif;
+    background-image: url('background.png');
+    background-size: cover; /* S'assure que l'image couvre toute la fenêtre */
+    background-position: center center; /* Centre l'image */
+    background-repeat: no-repeat; /* Évite la répétition de l'image */
+    background-attachment: fixed; /* Garde l'image fixe même lors du scroll */
 }
+
+.navbar {
+    z-index: 1000; /* Assurez que le menu est toujours visible */
+}
+
+.navbar-text {
+    font-size: 16px;
+    color: #000; /* Couleur du texte */
+}
+
 #login {
     display: block;
+    background-color: rgba(255, 255, 255, 0.8); /* Fond blanc semi-transparent */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Ajoute une légère ombre */
+    max-width: 400px;
+    margin: 50px auto; /* Centre le formulaire */
 }
+
+#availableUser {
+    background-color: rgba(255, 255, 255, 0.8); /* Fond blanc semi-transparent */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    margin: auto; /* Centre horizontalement */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centre verticalement */
+    max-height: 80vh; /* Limite la hauteur à 80% de la hauteur de la fenêtre */
+    overflow-y: auto; /* Ajoute le scroll vertical */
+}
+
+#invitation {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.9); /* Fond blanc légèrement transparent */
+    border-radius: 20px 20px 0 0; /* Arrondir seulement les coins supérieurs */
+    padding: 20px;
+    box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1); /* Ombre légère sur le haut */
+    z-index: 1000; /* Assurez-vous que la div est au-dessus des autres éléments */
+    margin-bottom: 0px !important;
+}
+
 #game, #invitation {
     display: none;
 }
 #players {
     list-style-type: none;
+    font-size: 14px;
+}
+#players li {
+    padding: 10px;
+    /*background-color: rgba(255, 255, 255, 0.8);*/
+    border-radius: 5px;
+    margin-bottom: 5px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+    cursor: pointer; /* Utilise une icône personnalisée pour le curseur */
+}
+
+#players li:hover {
+    background-color: rgba(173, 216, 230, 0.8); /* Met en surbrillance avec une couleur légèrement bleutée */
+    transform: scale(1.05); /* Agrandit légèrement l'élément pour attirer l'attention */
+    cursor: pointer; /* Change l'icône du curseur sur survol */
 }
 table {
     border-collapse: collapse;
@@ -38,11 +103,42 @@ td.revealed {
     overflow-y: scroll;
     font-size: 12px;
 }
+#gameContainer {
+    display: none;
+    justify-content: center; /* Centre horizontalement */
+    align-items: center; /* Centre verticalement */
+    min-height: 100vh; /* Utilise toute la hauteur de la fenêtre */
+    flex-direction: column; /* Dispose les éléments en colonne par défaut */
+    margin: 0 auto;
+}
 #gameBoard {
-    margin-bottom: 150px; /* Assurez-vous que le plateau n'écrase pas la div des messages */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 #plateau {
     display: none;
+}
+#plateau {
+    background-color: rgba(255, 255, 255, 0.9); /* Fond blanc semi-transparent */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Ombre légère pour le relief */
+    margin: 20px auto; /* Centre horizontalement */
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Centrer les éléments à l'intérieur */
+}
+#currentTurnDisplay {
+    background-color: rgba(255, 255, 255, 0.9); /* Fond blanc semi-transparent */
+    padding: 10px 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Ombre légère pour le relief */
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    max-width: 300px;
+    text-align: center;
 }
 #winnerModal {
     display: none;
@@ -82,4 +178,37 @@ td.revealed {
 .popup.show {
     opacity: 1;
     visibility: visible;
+}
+
+
+/* Mode mobile : afficher l'info sur le joueur au-dessus de la grille */
+@media (max-width: 768px) {
+    #currentTurnDisplay {
+        text-align: center;
+        margin-bottom: 20px; /* Ajouter de l'espace au-dessus du plateau */
+    }
+
+    #plateau {
+        max-width: 100%; /* Pour une meilleure utilisation de l'espace en mobile */
+    }
+}
+
+/* Mode PC : afficher l'info sur le joueur à gauche de la grille */
+@media (min-width: 769px) {
+    #gameContainer {
+        display: none;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    #currentTurnDisplay {
+        width: 200px;
+        margin-right: 20px;
+        text-align: left;
+        align-self: flex-start; /* S'aligne en haut à gauche */
+    }
+
+    #plateau {
+        flex-direction: row;
+    }
 }

@@ -41,7 +41,8 @@ function connectWebSocket() {
                 // Masquer la section de connexion et afficher la liste des joueurs
                 document.getElementById('login').style.display = 'none';
                 document.getElementById('game').style.display = 'block';
-                document.getElementById('userDisplay').textContent = data.username;
+                document.getElementById('navbarUserDisplay').textContent = data.username;
+                document.getElementById('navbar').style.display = 'block';
                 refreshPlayersList(data.players);
                 break;
 
@@ -55,7 +56,7 @@ function connectWebSocket() {
 
                 // Stocker le game_id pour les futures actions
                 document.getElementById('availableUser').style.display = 'none';
-                document.getElementById('plateau').style.display = 'block';
+                document.getElementById('gameContainer').style.display = 'flex';
                 currentGameId = data.game_id;
                 displayGameBoard(data.board);
 
@@ -218,6 +219,7 @@ function handleLogoutSuccess(data) {
     if (data.username === username) {
         // Le joueur qui a initié la déconnexion doit être redirigé vers l'écran de connexion
         document.getElementById('game').style.display = 'none';
+        document.getElementById('navbar').style.display = 'none';
         document.getElementById('login').style.display = 'block';
         logMessage('Vous avez été déconnecté.');
     } else {
@@ -270,7 +272,7 @@ function showWinnerModal(winnerMessage, gameId) {
 document.getElementById('closeModalBtn').addEventListener('click', () => {
     document.getElementById('winnerModal').style.display = 'none';
     document.getElementById('availableUser').style.display = 'block';
-    document.getElementById('plateau').style.display = 'none';
+    document.getElementById('gameContainer').style.display = 'none';
     clearGameBoard();
     socket.send(JSON.stringify({
         type: 'refresh_players',
@@ -302,11 +304,13 @@ document.getElementById('registerBtn').addEventListener('click', () => {
     logMessage('Tentative de création de compte pour ' + username);
 });
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
+
+document.getElementById('logoutLink').addEventListener('click', () => {
     clearGameBoard(); 
     socket.send(JSON.stringify({ type: 'logout' }));
     document.getElementById('login').style.display = 'block';
     document.getElementById('game').style.display = 'none';
+    document.getElementById('navbar').style.display = 'none';
     logMessage('Déconnexion de ' + username);
     connected = false;
 });
