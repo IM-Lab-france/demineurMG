@@ -90,7 +90,11 @@ function connectWebSocket() {
                 // Fin de partie et affichage du gagnant
                 displayGameBoard(data.board);
                 showWinnerModal(data.winner, data.game_id);
-                
+                break;
+                // Ajout de la gestion de la déconnexion d'un joueur
+            case 'player_disconnected':
+                logMessage('Votre adversaire s\'est déconnecté. La partie est annulée.');
+                showWinnerModal('Votre adversaire s\'est déconnecté. La partie est annulée.', currentGameId);
                 break;
             case 'logout_success':
                 handleLogoutSuccess(data);

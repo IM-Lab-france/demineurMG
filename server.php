@@ -95,9 +95,13 @@ class MinesweeperServer implements MessageComponentInterface {
                 if ($otherPlayerConnection) {
                     $otherPlayerConnection->send(json_encode([
                         'type' => 'player_disconnected',
-                        'message' => 'Votre adversaire s\'est déconnecté.'
+                        'message' => 'Votre adversaire s\'est déconnecté. La partie est annulée.'
                     ]));
                 }
+
+                // Retirer une partie jouée à chaque joueur
+                $this->decrementGamesPlayed($this->players[$disconnectedPlayerId]['id']);
+                $this->decrementGamesPlayed($this->players[$otherPlayerId]['id']);
 
                 // Supprimer la partie
                 unset($this->games[$gameId]);
@@ -272,6 +276,11 @@ class MinesweeperServer implements MessageComponentInterface {
                 'currentTurn' => $from->resourceId
             ];
 
+            // Appel à la fonction handleGameStart pour incrémenter le compteur de parties jouées
+            $player1Id = $this->players[$from->resourceId]['id']; // ID du joueur qui a accepté l'invitation
+            $player2Id = $this->players[$this->pendingInvitations[$invitationId]['inviter']]['id']; // ID du joueur qui a envoyé l'invitation
+            $this->handleGameStart($player1Id, $player2Id);  // Incrémenter le compteur de parties jouées
+            
             // Envoyer les informations de la partie aux deux joueurs
             foreach ($this->games[$gameId]['players'] as $playerId) {
                 $connection = $this->getConnectionFromPlayerId($playerId);
@@ -540,6 +549,13 @@ class MinesweeperServer implements MessageComponentInterface {
         unset($this->games[$gameId]);
     }
 
+    // Fonction pour décrémenter le nombre de parties jouées
+    protected function decrementGamesPlayed($playerId) {
+        $db = new Database();
+        $stmt = $db->getPDO()->prepare("UPDATE users SET games_played = games_played - 1 WHERE id = :id");
+        $stmt->bindParam(':id', $playerId);
+        $stmt->execute();
+    }
     protected function sendConnectedPlayersList(ConnectionInterface $from) {
         $playersList = $this->getConnectedPlayers();
         foreach ($this->clients as $client) {
