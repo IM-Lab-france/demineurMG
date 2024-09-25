@@ -14,8 +14,8 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $players;      // Liste des joueurs connectés
     protected $games;        // Liste des parties en cours
 
-    protected $defaultSize = 20;
-    protected $difficulty = 0.01;
+    protected $defaultSize = 10;
+    protected $difficulty = 0.10;
     protected $defaultNbMines;
 
 
@@ -137,7 +137,9 @@ class MinesweeperServer implements MessageComponentInterface {
         // Vérifier si l'utilisateur existe et si le mot de passe correspond
         if ($user && password_verify($password, $user['password_hash'])) {
             // Connexion réussie
-            $this->players[$from->resourceId] = ['id' => $user['id'], 'username' => $username];
+            $this->players[$from->resourceId] = [
+                'id' => $user['id'], 
+                'username' => $username];
     
             $from->send(json_encode([
                 'type' => 'login_success',
@@ -216,6 +218,10 @@ class MinesweeperServer implements MessageComponentInterface {
             // Créer la partie et associer les deux joueurs
             $gameId = uniqid();
             $board = $this->generateBoard($this->defaultSize, $this->defaultSize, $this->defaultNbMines); // Exemple: grille 10x10 avec 20 mines
+           
+            // Incrémenter les compteurs de parties jouées
+            $this->handleGameStart($this->players[$from->resourceId]['id'], $this->players[$inviterConnection->resourceId]['id']);
+           
             $this->games[$gameId] = [
                 'players' => [$from->resourceId, $inviterConnection->resourceId],
                 'board' => $board,
@@ -237,6 +243,30 @@ class MinesweeperServer implements MessageComponentInterface {
             }
             $this->sendConnectedPlayersList($from);
         }
+    }
+
+    protected function handleGameStart($player1Id, $player2Id) {
+        $db = new Database();
+        
+        // Incrémenter le compteur de parties jouées pour les deux joueurs
+        $stmt = $db->getPDO()->prepare("UPDATE users SET games_played = games_played + 1 WHERE id = :id");
+        
+        $stmt->bindParam(':id', $player1Id);
+        $stmt->execute();
+        
+        $stmt->bindParam(':id', $player2Id);
+        $stmt->execute();
+    }
+
+    protected function handleGameOver($winnerId) {
+
+        $db = new Database();
+        
+        // Incrémenter le compteur de victoires pour le gagnant
+        $stmt = $db->getPDO()->prepare("UPDATE users SET games_won = games_won + 1 WHERE id = :id");
+        
+        $stmt->bindParam(':id', $winnerId);
+        $stmt->execute();
     }
 
     // Fonction pour révéler les cellules adjacentes de manière récursive si elles ont 0 mines adjacentes
@@ -416,23 +446,40 @@ class MinesweeperServer implements MessageComponentInterface {
 
         $game = $this->games[$gameId];
         $winnerId = null;
+        $dbWinnerID = null;
+
         foreach ($game['players'] as $playerId) {
             if ($playerId !== $loserId) {
                 $winnerId = $playerId;
-                break;
+                $dbWinnerID = $this->players[$from->resourceId]['id'];
+            } else {
+                
             }
         }
 
         foreach ($game['players'] as $playerId) {
             $connection = $this->getConnectionFromPlayerId($playerId);
             if ($connection) {
+
+                $message = null;
+                if($winnerId === $playerId ) {
+                    $message = 'Vous avez gagné!';
+                    //mettre a jour les points dans la base
+                    $this->handleGameOver($this->players[$winnerId]['id']);
+                } else {
+                    $message = 'Vous avez perdu!';
+                }
+
                 $connection->send(json_encode([
                     'type' => 'game_over',
-                    'winner' => $winnerId === $playerId ? 'Vous avez gagné!' : 'Vous avez perdu!',
+                    'winner' => $message,
                     'board' => $this->games[$gameId]['board']
                 ]));
             }
         }
+
+        
+
         // Envoyer la liste des joueurs connectés
         $this->sendConnectedPlayersList($from);
         unset($this->games[$gameId]);
