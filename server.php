@@ -17,7 +17,7 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $defaultSize = 10;
     protected $difficulty = 0.10;
     protected $defaultNbMines;
-
+    protected $pendingInvitations = []; // Stocker les invitations en attente
 
     public function __construct() {
         $this->clients = new \SplObjectStorage;
@@ -71,19 +71,49 @@ class MinesweeperServer implements MessageComponentInterface {
             case 'refresh_players':
                 $this->sendConnectedPlayersList($from);
                 break;
+            case 'get_scores':
+                $this->handleGetScores($from);
+                break;
         }
     }
 
     public function onClose(ConnectionInterface $from) {
+        // Supprimer le joueur des clients connectés
         $this->clients->detach($from);
-        unset($this->players[$from->resourceId]);
-        echo "Connexion {$from->resourceId} fermée.\n";
+        $disconnectedPlayerId = $from->resourceId;
+
+        echo "Connexion fermée pour le joueur {$disconnectedPlayerId}\n";
+
+        // Vérifier si le joueur déconnecté est en partie
+        foreach ($this->games as $gameId => $game) {
+            if (in_array($disconnectedPlayerId, $game['players'])) {
+                // L'autre joueur dans la partie
+                $otherPlayerId = $game['players'][0] === $disconnectedPlayerId ? $game['players'][1] : $game['players'][0];
+
+                // Envoyer un message à l'autre joueur pour l'informer de la déconnexion
+                $otherPlayerConnection = $this->getConnectionFromPlayerId($otherPlayerId);
+                if ($otherPlayerConnection) {
+                    $otherPlayerConnection->send(json_encode([
+                        'type' => 'player_disconnected',
+                        'message' => 'Votre adversaire s\'est déconnecté.'
+                    ]));
+                }
+
+                // Supprimer la partie
+                unset($this->games[$gameId]);
+            }
+        }
+
+        // Supprimer le joueur de la liste des joueurs connectés
+        unset($this->players[$disconnectedPlayerId]);
+
+        // Envoyer la liste mise à jour des joueurs connectés à tous les autres clients
         $this->sendConnectedPlayersList($from);
     }
 
-    public function onError(ConnectionInterface $conn, \Exception $e) {
+    public function onError(ConnectionInterface $from, \Exception $e) {
         echo "Erreur: " . $e->getMessage() . "\n";
-        $conn->close();
+        $from->close();
     }
 
     protected function handleRegister(ConnectionInterface $from, $data) {
@@ -188,9 +218,21 @@ class MinesweeperServer implements MessageComponentInterface {
 
         foreach ($this->clients as $client) {
             if (isset($this->players[$client->resourceId]) && $this->players[$client->resourceId]['id'] === $inviteeId) {
+                // Générer un numéro d'invitation unique
+                $invitationId = uniqid('inv_');
+
+                // Stocker les informations d'invitation (taille et difficulté)
+                $this->pendingInvitations[$invitationId] = [
+                    'inviter' => $from->resourceId,
+                    'gridSize' => $data['gridSize'],
+                    'difficulty' => $data['difficulty']
+                ];
+
+                // Envoyer l'invitation avec le numéro unique à l'invité
                 $client->send(json_encode([
                     'type' => 'invite',
-                    'inviter' => $fromUser['username']
+                    'inviter' => $fromUser['username'],
+                    'invitationId' => $invitationId // Transmettre le numéro d'invitation
                 ]));
                 return;
             }
@@ -205,30 +247,32 @@ class MinesweeperServer implements MessageComponentInterface {
 
     protected function handleAcceptInvite(ConnectionInterface $from, $data) {
         $inviterUsername = $data['inviter'];
-        $inviterConnection = null;
+        $invitationId = $data['invitationId']; // Récupérer l'invitationId
 
-        foreach ($this->clients as $client) {
-            if (isset($this->players[$client->resourceId]) && $this->players[$client->resourceId]['username'] === $inviterUsername) {
-                $inviterConnection = $client;
-                break;
-            }
-        }
+        // Vérifier si l'invitation existe dans les invitations en attente
+        if (isset($this->pendingInvitations[$invitationId])) {
+            $invitation = $this->pendingInvitations[$invitationId];
+            $gridSize = $invitation['gridSize'];
+            $difficulty = intval($invitation['difficulty']);
 
-        if ($inviterConnection) {
-            // Créer la partie et associer les deux joueurs
+            // Récupérer les dimensions de la grille
+            list($width, $height) = explode('x', $gridSize);
+
+            // Calculer le nombre de mines
+            $numMines = intval(($width * $height) * ($difficulty / 100));
+
+            // Générer le plateau
+            $board = $this->generateBoard($width, $height, $numMines);
+
+            // Créer la partie
             $gameId = uniqid();
-            $board = $this->generateBoard($this->defaultSize, $this->defaultSize, $this->defaultNbMines); // Exemple: grille 10x10 avec 20 mines
-           
-            // Incrémenter les compteurs de parties jouées
-            $this->handleGameStart($this->players[$from->resourceId]['id'], $this->players[$inviterConnection->resourceId]['id']);
-           
             $this->games[$gameId] = [
-                'players' => [$from->resourceId, $inviterConnection->resourceId],
+                'players' => [$from->resourceId, $this->pendingInvitations[$invitationId]['inviter']],
                 'board' => $board,
-                'currentTurn' => $from->resourceId,
-                'ready' => []
+                'currentTurn' => $from->resourceId
             ];
 
+            // Envoyer les informations de la partie aux deux joueurs
             foreach ($this->games[$gameId]['players'] as $playerId) {
                 $connection = $this->getConnectionFromPlayerId($playerId);
                 if ($connection) {
@@ -237,11 +281,22 @@ class MinesweeperServer implements MessageComponentInterface {
                         'game_id' => $gameId,
                         'board' => $board,
                         'turn' => $this->games[$gameId]['currentTurn'],
-                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username'],
+                        'gridSize' => $gridSize,
+                        'difficulty' => $difficulty
                     ]));
                 }
             }
-            $this->sendConnectedPlayersList($from);
+
+            // Supprimer l'invitation une fois acceptée
+            unset($this->pendingInvitations[$invitationId]);
+
+        } else {
+            // Si l'invitation n'est pas trouvée
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Invitation introuvable ou expirée.'
+            ]));
         }
     }
 
@@ -309,7 +364,7 @@ class MinesweeperServer implements MessageComponentInterface {
                 'type' => 'error',
                 'message' => 'Jeu introuvable'
             ]));
-            return;
+            return; 
         }
     
         // Vérifier si c'est bien le tour du joueur
@@ -573,6 +628,25 @@ class MinesweeperServer implements MessageComponentInterface {
         }
 
         return $board;
+    }
+
+    protected function handleGetScores(ConnectionInterface $from) {
+        // Récupérer les scores des joueurs depuis la base de données
+        $db = new Database();
+        $stmt = $db->getPDO()->prepare("
+            SELECT username, games_won, games_played, 
+            (games_won / NULLIF(games_played, 0)) * 100 AS win_percentage
+            FROM users
+            ORDER BY win_percentage DESC
+        ");
+        $stmt->execute();
+        $scores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+        // Envoyer les scores au client WebSocket
+        $from->send(json_encode([
+            'type' => 'connected_players', // ou 'get_scores' selon le format que tu veux suivre
+            'players' => $scores
+        ]));
     }
 }
 

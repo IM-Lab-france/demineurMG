@@ -19,4 +19,4 @@ class Database {
     public function getPDO() {
         return $this->pdo;
     }
-}
+} 

@@ -4,6 +4,7 @@ let currentGameId;
 let refreshInterval;
 let connected = false;
 let currentPlayerId;
+let currentInvitationId = null;
 
 // Fonction pour afficher les messages WebSocket dans la div messages
 function logMessage(message) {
@@ -78,6 +79,7 @@ function connectWebSocket() {
             case 'invite':
                 document.getElementById('inviter').textContent = data.inviter;
                 document.getElementById('invitation').style.display = 'block';
+                currentInvitationId = data.invitationId;
                 break;
 
             case 'invite_declined':
@@ -132,29 +134,70 @@ function refreshPlayersList(players) {
             playersList.appendChild(li);
         });
     }
-}
+} 
 
 // Gestion des invitations
 function invitePlayer(playerId) {
-    socket.send(JSON.stringify({ type: 'invite', invitee: playerId }));
-    logMessage('Invitation envoyée à ' + playerId);
+    // Afficher la popin
+    const inviteModal = document.getElementById('inviteSettingsModal');
+    inviteModal.style.display = 'block';
+
+    // Gestion de la fermeture de la popin
+    const closeBtn = document.getElementById('closeInviteSettings');
+    closeBtn.onclick = function() {
+        inviteModal.style.display = 'none';
+    };
+
+    // Gestion de l'envoi de l'invitation après sélection de la grille et difficulté
+    const inviteForm = document.getElementById('inviteSettingsForm');
+    inviteForm.onsubmit = function(e) {
+        e.preventDefault(); // Empêche le rechargement de la page
+
+        // Récupérer les choix de l'utilisateur
+        const gridSize = document.getElementById('gridSize').value;
+        const difficulty = document.getElementById('difficulty').value;
+
+        // Envoyer l'invitation avec les paramètres choisis
+        socket.send(JSON.stringify({
+            type: 'invite',
+            invitee: playerId,
+            gridSize: gridSize,
+            difficulty: difficulty
+        }));
+
+        // Masquer la popin après l'envoi
+        inviteModal.style.display = 'none';
+
+        console.log('Invitation envoyée à ' + playerId + ' avec une grille de ' + gridSize + ' et une difficulté de ' + difficulty + '%');
+    };
 }
 
 function acceptInvite() {
-    const inviter = document.getElementById('inviter').textContent;  // Nom de l'inviteur
+    const inviter = document.getElementById('inviter').textContent;
+
+    // Envoyer la réponse d'acceptation avec l'invitationId
     socket.send(JSON.stringify({
         type: 'accept_invite',
-        inviter: inviter  // Envoi du nom de l'inviteur
+        inviter: inviter,
+        invitationId: currentInvitationId // Utiliser la variable stockée
     }));
+
+    // Masquer la popin d'invitation
     document.getElementById('invitation').style.display = 'none';
-    logMessage('Invitation acceptée de ' + inviter);
 }
 
 function declineInvite() {
     const inviter = document.getElementById('inviter').textContent;
-    socket.send(JSON.stringify({ type: 'decline_invite', inviter }));
+
+    // Envoyer la réponse de refus avec l'invitationId
+    socket.send(JSON.stringify({
+        type: 'decline_invite',
+        inviter: inviter,
+        invitationId: currentInvitationId // Utiliser la variable stockée
+    }));
+
+    // Masquer la popin d'invitation
     document.getElementById('invitation').style.display = 'none';
-    logMessage('Invitation refusée de ' + inviter);
 }
 
 // Afficher le plateau de jeu

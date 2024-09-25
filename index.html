@@ -6,22 +6,32 @@
     <title>Démineur Multijoueur</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     <link rel="stylesheet" href="styles.css"> <!-- Lien vers le fichier CSS -->
+    <!-- Ajout du favicon -->
+    <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body class="bg-light"> <!-- Change background to a light color -->
 
-    <nav id="navbar" class="navbar navbar-expand-lg navbar-light bg-light fixed-top" style="display: none;">
+    <!-- Inclusion du menu commun -->
+    <nav id="navbar" class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
+            <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ml-auto">
-            <li class="nav-item">
-              <a id="logoutLink" class="nav-link text-danger" href="#">Déconnexion</a>
-            </li>
-          </ul>
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="index.html">Accueil</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="scores.html">Scores</a>
+                </li>
+                <li class="nav-item">
+                    <a id="logoutLink" class="nav-link text-danger" href="#">Déconnexion</a>
+                </li>
+            </ul>
         </div>
         <span id="welcomeMessage" class="navbar-text ml-auto pr-3">Bienvenue, <span id="navbarUserDisplay"></span></span>
-      </nav>
+    </nav>
+
     <!-- Formulaire de connexion -->
     <div id="login" class="container text-center mt-5">
         <h2>Connexion / Création de compte</h2>
@@ -73,6 +83,33 @@
 
     <!-- Div pour afficher les messages WebSocket -->
     <div id="messages" class="container-fluid"></div>
+
+    <!-- Popin pour choisir la taille de la grille et la difficulté -->
+    <div id="inviteSettingsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" id="closeInviteSettings">&times;</span>
+            <h3>Choisir les paramètres de la partie</h3>
+            <form id="inviteSettingsForm">
+                <div class="form-group">
+                    <label for="gridSize">Taille de la grille :</label>
+                    <select id="gridSize" class="form-control">
+                        <option value="10x10">10x10</option>
+                        <option value="20x20">20x20</option>
+                        <option value="30x30">30x30</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="difficulty">Difficulté :</label>
+                    <select id="difficulty" class="form-control">
+                        <option value="10">Facile (10% de mines)</option>
+                        <option value="20">Moyen (20% de mines)</option>
+                        <option value="30">Difficile (30% de mines)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Envoyer l'invitation</button>
+            </form>
+        </div>
+    </div>
 
     <!-- jQuery, Popper.js, and Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
