@@ -1,4 +1,7 @@
 <?php
+
+date_default_timezone_set('Europe/Paris');
+
 require __DIR__ . '/vendor/autoload.php';
 
 use Ratchet\MessageComponentInterface;
@@ -6,8 +9,29 @@ use Ratchet\ConnectionInterface;
 use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
 use Ratchet\Server\IoServer;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
 
 require 'db.php';
+
+
+// Configuration du logger
+$logger = new Logger('minesweeper_logger');
+
+// Handler pour les fichiers tournants avec une taille maximale de 5Mo par fichier
+$logFilePath = __DIR__ . '/logs/minesweeper.log'; // Chemin du fichier log
+$rotatingHandler = new RotatingFileHandler($logFilePath, 0, Logger::DEBUG);
+$rotatingHandler->setFilenameFormat('{filename}-{date}', 'Y-m-d'); // Optionnel : format du fichier
+
+// Handler pour afficher dans le prompt/console
+$consoleHandler = new StreamHandler('php://stdout', Logger::DEBUG);
+
+// Ajout des deux handlers
+$logger->pushHandler($rotatingHandler);
+$logger->pushHandler($consoleHandler);
+
+
 
 class MinesweeperServer implements MessageComponentInterface {
     protected $clients;
@@ -19,21 +43,28 @@ class MinesweeperServer implements MessageComponentInterface {
     protected $defaultNbMines;
     protected $pendingInvitations = []; // Stocker les invitations en attente
 
-    public function __construct() {
+    protected $logger; // Ajout d'une propriété pour le logger
+
+    public function __construct($logger) {
         $this->clients = new \SplObjectStorage;
         $this->players = [];
         $this->games = [];
         $this->defaultNbMines = intval($this->defaultSize * $this->defaultSize * $this->difficulty);
+
+        $this->logger = $logger; // Initialisation du logger
+        $this->logger->info("MinesweeperServer started!");
+        
+
     }
 
     public function onOpen(ConnectionInterface $conn) {
         $this->clients->attach($conn);
-        echo "Nouvelle connexion ! ({$conn->resourceId})\n";
+        $this->logger->info("Nouvelle connexion ! ({$conn->resourceId})");
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {
         $data = json_decode($msg, true);
-        echo "Message reçu : " . json_encode($data) . "\n";
+        $this->logger->info("IN  :" . json_encode($data) );
 
         switch ($data['type']) {
             case 'register':
@@ -82,7 +113,7 @@ class MinesweeperServer implements MessageComponentInterface {
         $this->clients->detach($from);
         $disconnectedPlayerId = $from->resourceId;
 
-        echo "Connexion fermée pour le joueur {$disconnectedPlayerId}\n";
+        $this->logger->info("Connexion fermée pour le joueur {$disconnectedPlayerId}");
 
         // Vérifier si le joueur déconnecté est en partie
         foreach ($this->games as $gameId => $game) {
@@ -94,6 +125,11 @@ class MinesweeperServer implements MessageComponentInterface {
                 $otherPlayerConnection = $this->getConnectionFromPlayerId($otherPlayerId);
                 if ($otherPlayerConnection) {
                     $otherPlayerConnection->send(json_encode([
+                        'type' => 'player_disconnected',
+                        'message' => 'Votre adversaire s\'est déconnecté. La partie est annulée.'
+                    ]));
+
+                    $this->logger->info("OUT:" . json_encode([
                         'type' => 'player_disconnected',
                         'message' => 'Votre adversaire s\'est déconnecté. La partie est annulée.'
                     ]));
@@ -116,7 +152,7 @@ class MinesweeperServer implements MessageComponentInterface {
     }
 
     public function onError(ConnectionInterface $from, \Exception $e) {
-        echo "Erreur: " . $e->getMessage() . "\n";
+        $this->logger->error($e->getMessage() );
         $from->close();
     }
 
@@ -134,6 +170,10 @@ class MinesweeperServer implements MessageComponentInterface {
         if ($existingUser) {
             // L'utilisateur avec ce login existe déjà
             $from->send(json_encode([
+                'type' => 'register_failed',
+                'message' => 'Nom d\'utilisateur déjà pris.'
+            ]));
+            $this->logger->error("OUT:" . json_encode([
                 'type' => 'register_failed',
                 'message' => 'Nom d\'utilisateur déjà pris.'
             ]));
@@ -157,6 +197,11 @@ class MinesweeperServer implements MessageComponentInterface {
                 'type' => 'register_success',
                 'message' => 'Enregistrement réussi. Vous pouvez vous connecter.'
             ]));
+            $this->logger->info("OUT:" . json_encode([
+                'type' => 'register_success',
+                'message' => 'Enregistrement réussi. Vous pouvez vous connecter.'
+            ]));
+            
         }
     }
     
@@ -181,12 +226,24 @@ class MinesweeperServer implements MessageComponentInterface {
                 'username' => $username,
                 'players' => $this->getConnectedPlayers()
             ]));
+
+            $this->logger->info("OUT:" . json_encode([
+                'type' => 'login_success',
+                'playerId' => $user['id'],  // Envoi de l'ID du joueur
+                'username' => $username,
+                'players' => $this->getConnectedPlayers()
+            ]));
     
             // Envoyer la liste des joueurs connectés
             $this->sendConnectedPlayersList($from);
         } else {
             // Échec de la connexion
             $from->send(json_encode([
+                'type' => 'login_failed',
+                'message' => 'Login ou mot de passe incorrect.'
+            ]));
+
+            $this->logger->error("OUT:" . json_encode([
                 'type' => 'login_failed',
                 'message' => 'Login ou mot de passe incorrect.'
             ]));
@@ -212,8 +269,13 @@ class MinesweeperServer implements MessageComponentInterface {
             'type' => 'logout_success',
             'message' => 'Déconnexion réussie'
         ]));
+
+        $this->logger->info("OUT:" . json_encode([
+            'type' => 'logout_success',
+            'message' => 'Déconnexion réussie'
+        ]));
         
-        echo "Joueur {$from->resourceId} déconnecté.\n";
+        $this->logger->info("Joueur {$from->resourceId} déconnecté.");
     }
     
     protected function handleInvite(ConnectionInterface $from, $data) {
@@ -238,12 +300,24 @@ class MinesweeperServer implements MessageComponentInterface {
                     'inviter' => $fromUser['username'],
                     'invitationId' => $invitationId // Transmettre le numéro d'invitation
                 ]));
+
+                $this->logger->info("OUT:" . json_encode([
+                    'type' => 'invite',
+                    'inviter' => $fromUser['username'],
+                    'invitationId' => $invitationId // Transmettre le numéro d'invitation
+                ]));
+
                 return;
             }
         }
 
         // Si l'invité n'est pas trouvé
         $from->send(json_encode([
+            'type' => 'invite_failed',
+            'message' => 'Joueur non trouvé'
+        ]));
+
+        $this->logger->error("OUT:" . json_encode([
             'type' => 'invite_failed',
             'message' => 'Joueur non trouvé'
         ]));
@@ -294,6 +368,16 @@ class MinesweeperServer implements MessageComponentInterface {
                         'gridSize' => $gridSize,
                         'difficulty' => $difficulty
                     ]));
+
+                    $this->logger->info("OUT:" . json_encode([
+                        'type' => 'game_start',
+                        'game_id' => $gameId,
+                        'board' => $board,
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username'],
+                        'gridSize' => $gridSize,
+                        'difficulty' => $difficulty
+                    ]));
                 }
             }
 
@@ -303,6 +387,11 @@ class MinesweeperServer implements MessageComponentInterface {
         } else {
             // Si l'invitation n'est pas trouvée
             $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Invitation introuvable ou expirée.'
+            ]));
+
+            $this->logger->error("OUT:" . json_encode([
                 'type' => 'error',
                 'message' => 'Invitation introuvable ou expirée.'
             ]));
@@ -373,12 +462,22 @@ class MinesweeperServer implements MessageComponentInterface {
                 'type' => 'error',
                 'message' => 'Jeu introuvable'
             ]));
+
+            $this->logger->error("OUT:" . json_encode([
+                'type' => 'error',
+                'message' => 'Jeu introuvable'
+            ]));
             return; 
         }
     
         // Vérifier si c'est bien le tour du joueur
         if ($this->games[$gameId]['currentTurn'] !== $from->resourceId) {
             $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Ce n\'est pas votre tour de jouer.'
+            ]));
+
+            $this->logger->info("OUT:" . json_encode([
                 'type' => 'error',
                 'message' => 'Ce n\'est pas votre tour de jouer.'
             ]));
@@ -412,6 +511,12 @@ class MinesweeperServer implements MessageComponentInterface {
                             'winner' => 'Egalité',
                             'board' => $this->games[$gameId]['board']
                         ]));
+
+                        $this->logger->info("OUT:" . json_encode([
+                            'type' => 'game_over',
+                            'winner' => 'Egalité',
+                            'board' => $this->games[$gameId]['board']
+                        ]));
                     }
                 }
                 unset($this->games[$gameId]);
@@ -426,6 +531,13 @@ class MinesweeperServer implements MessageComponentInterface {
                 $connection = $this->getConnectionFromPlayerId($playerId);
                 if ($connection) {
                     $connection->send(json_encode([
+                        'type' => 'update_board',
+                        'board' => $this->games[$gameId]['board'],
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                    ]));
+
+                    $this->logger->info("OUT:" . json_encode([
                         'type' => 'update_board',
                         'board' => $this->games[$gameId]['board'],
                         'turn' => $this->games[$gameId]['currentTurn'],
@@ -446,6 +558,12 @@ class MinesweeperServer implements MessageComponentInterface {
                 'type' => 'error',
                 'message' => 'Jeu introuvable'
             ]));
+
+            $this->logger->error("OUT:" . json_encode([
+                'type' => 'error',
+                'message' => 'Jeu introuvable'
+            ]));
+
             return;
         }
 
@@ -455,6 +573,13 @@ class MinesweeperServer implements MessageComponentInterface {
             $connection = $this->getConnectionFromPlayerId($playerId);
             if ($connection) {
                 $connection->send(json_encode([
+                    'type' => 'update_board',
+                    'board' => $this->games[$gameId]['board'],
+                    'turn' => $this->games[$gameId]['currentTurn'],
+                    'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                ]));
+
+                $this->logger->info("OUT:" . json_encode([
                     'type' => 'update_board',
                     'board' => $this->games[$gameId]['board'],
                     'turn' => $this->games[$gameId]['currentTurn'],
@@ -483,6 +608,14 @@ class MinesweeperServer implements MessageComponentInterface {
                 $connection = $this->getConnectionFromPlayerId($playerId);
                 if ($connection) {
                     $connection->send(json_encode([
+                        'type' => 'new_game_start',
+                        'game_id' => $gameId,
+                        'board' => $board,
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                    ]));
+
+                    $this->logger->info("OUT:" . json_encode([
                         'type' => 'new_game_start',
                         'game_id' => $gameId,
                         'board' => $board,
@@ -542,6 +675,12 @@ class MinesweeperServer implements MessageComponentInterface {
                     'winner' => $message,
                     'board' => $this->games[$gameId]['board'] // Envoyer le plateau complet
                 ]));
+
+                $this->logger->info("OUT:" . json_encode([
+                    'type' => 'game_over',
+                    'winner' => $message,
+                    'board' => $this->games[$gameId]['board'] // Envoyer le plateau complet
+                ]));
             }
         }
 
@@ -572,6 +711,12 @@ class MinesweeperServer implements MessageComponentInterface {
         $playersList = $this->getConnectedPlayers();
         foreach ($this->clients as $client) {
             $client->send(json_encode([
+                'type' => 'connected_players',
+                'playerId' => $from->resourceId,
+                'players' => $playersList
+            ]));
+
+            $this->logger->info("OUT:" . json_encode([
                 'type' => 'connected_players',
                 'playerId' => $from->resourceId,
                 'players' => $playersList
@@ -675,13 +820,18 @@ class MinesweeperServer implements MessageComponentInterface {
             'type' => 'connected_players', // ou 'get_scores' selon le format que tu veux suivre
             'players' => $scores
         ]));
+
+        $this->logger->info("OUT:" . json_encode([
+            'type' => 'connected_players', // ou 'get_scores' selon le format que tu veux suivre
+            'players' => $scores
+        ]));
     }
 }
 
 $server = IoServer::factory(
     new HttpServer(
         new WsServer(
-            new MinesweeperServer()
+            new MinesweeperServer($logger)
         )
     ),
     8080, '192.168.1.170'
