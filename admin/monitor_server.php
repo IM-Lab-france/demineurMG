@@ -30,9 +30,6 @@ function isServerRunning() {
     $output = [];
     exec("ps aux | grep '[/]server.php'", $output);
     
-    // Log et affichage du résultat du grep
-    $logger->info("Résultat du grep pour vérifier le statut du serveur.", ['output' => $output]);
-    
     return count($output) > 0;
 }
 

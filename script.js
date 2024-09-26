@@ -51,6 +51,7 @@ function connectWebSocket() {
                 document.getElementById('navbar').style.display = 'block';
                 document.getElementById('welcomeMessage').style.display = 'block';
                 document.getElementById('logoutLink').style.display = 'block';
+                document.getElementById('availableUser').style.display = 'block';
                 refreshPlayersList(data.players);
                 break;
 
@@ -153,6 +154,7 @@ function showConnectionError() {
     document.getElementById('login').style.display = 'none'; // Masquer le formulaire de connexion
     if (!errorDiv) {
         errorDiv = document.createElement('div');
+        document.getElementById('availableUser').style.display = 'none';
         errorDiv.classList.add('connection-error', 'text-center'); // Utiliser une classe CSS pour styliser le message
         errorDiv.innerHTML = `
             <h2>Oops!</h2>
@@ -199,7 +201,7 @@ function refreshPlayersList(players) {
     const playersList = document.getElementById('players');
     playersList.innerHTML = '';
     const filteredPlayers = players.filter(player => player.id !== currentPlayerId);
-
+    
     if (filteredPlayers.length === 0) {
         // Si aucun autre joueur en ligne, afficher le message
         const li = document.createElement('li');

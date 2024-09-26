@@ -105,6 +105,9 @@ class MinesweeperServer implements MessageComponentInterface {
             case 'get_scores':
                 $this->handleGetScores($from);
                 break;
+            case 'get_player_count':
+                $this->handleGetPlayerCount($from);
+                break;
         }
     }
 
@@ -154,6 +157,23 @@ class MinesweeperServer implements MessageComponentInterface {
     public function onError(ConnectionInterface $from, \Exception $e) {
         $this->logger->error($e->getMessage() );
         $from->close();
+    }
+
+    protected function handleGetPlayerCount(ConnectionInterface $from) {
+        $connectedPlayersCount = count($this->players);
+        $gamesInProgress = count($this->games);
+    
+        $from->send(json_encode([
+            'type' => 'player_count',
+            'connectedPlayers' => $connectedPlayersCount,
+            'gamesInProgress' => $gamesInProgress
+        ]));
+    
+        $this->logger->info("OUT: " . json_encode([
+            'type' => 'player_count',
+            'connectedPlayers' => $connectedPlayersCount,
+            'gamesInProgress' => $gamesInProgress
+        ]));
     }
 
     protected function handleRegister(ConnectionInterface $from, $data) {
