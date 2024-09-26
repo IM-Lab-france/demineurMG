@@ -359,6 +359,23 @@ td.revealed {
     cursor: pointer;
 }
 
+.mine-triggered {
+    position: relative;
+    background-color: #ffcccc;
+}
+
+.mine-triggered::after {
+    content: '❌';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: red;
+    font-size: 18px;
+    font-weight: bold;
+    pointer-events: none; /* Pour éviter que le pseudo-élément interfère avec les événements de la souris */
+}
+
 /* Mode mobile : afficher l'info sur le joueur au-dessus de la grille */
 @media (max-width: 768px) {
     #currentTurnDisplay {

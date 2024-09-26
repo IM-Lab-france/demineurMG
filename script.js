@@ -96,7 +96,7 @@ function connectWebSocket() {
 
             case 'game_over':
                 // Fin de partie et affichage du gagnant
-                displayGameBoard(data.board);
+                displayGameBoard(data.board, data.losingCell);
                 showWinnerModal(data.winner, data.game_id);
             
                 // Révéler toutes les cellules (mines et chiffres)
@@ -283,7 +283,7 @@ function declineInvite() {
 }
 
 // Afficher le plateau de jeu
-function displayGameBoard(board) {
+function displayGameBoard(board, losingCell = null) {
     const gameBoardDiv = document.getElementById('gameBoard');
     gameBoardDiv.innerHTML = ''; // Réinitialiser le plateau de jeu
 
@@ -299,9 +299,14 @@ function displayGameBoard(board) {
                 td.classList.add('revealed');
                 if (cell.mine) {
                     td.textContent = '💣'; // Afficher la mine
+
+                    // Vérifier si c'est la mine qui a provoqué la fin de la partie
+                    if (losingCell && x == losingCell.x && y == losingCell.y) {
+                        td.classList.add('mine-triggered');
+                    }
                 } else if (cell.adjacentMines > 0) {
                     td.textContent = cell.adjacentMines; // Afficher le nombre de mines adjacentes
-                    
+
                     // Ajouter une classe pour la couleur du nombre de mines
                     td.classList.add(`mine-number-${cell.adjacentMines}`);
                 }

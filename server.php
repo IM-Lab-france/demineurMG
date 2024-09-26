@@ -229,6 +229,22 @@ class MinesweeperServer implements MessageComponentInterface {
         $username = $data['username'];
         $password = $data['password']; // Mot de passe en clair reçu du client
     
+        // Vérifier si l'utilisateur est déjà connecté
+        foreach ($this->players as $resourceId => $playerInfo) {
+            if ($playerInfo['username'] === $username) {
+                // L'utilisateur est déjà connecté
+                $from->send(json_encode([
+                    'type' => 'login_failed',
+                    'message' => 'Cet utilisateur est déjà connecté.'
+                ]));
+                $this->logger->info("OUT:" . json_encode([
+                    'type' => 'login_failed',
+                    'message' => 'Cet utilisateur est déjà connecté.'
+                ]));
+                return; // Arrêter le traitement
+            }
+        }
+
         // Utilisation de la base de données pour récupérer les informations de l'utilisateur
         $db = new Database();
         $user = $db->getUserByUsername($username);
@@ -518,7 +534,7 @@ class MinesweeperServer implements MessageComponentInterface {
     
             // Si la cellule est une mine, terminer la partie
             if ($this->games[$gameId]['board'][$x][$y]['mine']) {
-                $this->endGame($from, $gameId, $from->resourceId);
+                $this->endGame($from, $gameId, $from->resourceId,['x' => $x, 'y' => $y]);
                 return;
             }
     
@@ -665,7 +681,7 @@ class MinesweeperServer implements MessageComponentInterface {
         return true; // Toutes les cases sans mines sont révélées
     }
 
-    protected function endGame(ConnectionInterface $from, $gameId, $loserId) {
+    protected function endGame(ConnectionInterface $from, $gameId, $loserId, $losingCell) {
         
         if (!isset($this->games[$gameId])) return;
 
@@ -700,13 +716,15 @@ class MinesweeperServer implements MessageComponentInterface {
                 $connection->send(json_encode([
                     'type' => 'game_over',
                     'winner' => $message,
-                    'board' => $this->games[$gameId]['board'] // Envoyer le plateau complet
+                    'board' => $this->games[$gameId]['board'], // Envoyer le plateau complet
+                    'losingCell' => $losingCell
                 ]));
 
                 $this->logger->info("OUT:" . json_encode([
                     'type' => 'game_over',
                     'winner' => $message,
-                    'board' => $this->games[$gameId]['board'] // Envoyer le plateau complet
+                    'board' => $this->games[$gameId]['board'], // Envoyer le plateau complet
+                    'losingCell' => $losingCell
                 ]));
             }
         }
