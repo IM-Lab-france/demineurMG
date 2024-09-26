@@ -5,6 +5,8 @@ let refreshInterval;
 let connected = false;
 let currentPlayerId;
 let currentInvitationId = null;
+let errorDiv = null;
+let retryInterval = 5000;
 
 // Fonction pour afficher les messages WebSocket dans la div messages
 function logMessage(message) {
@@ -23,6 +25,9 @@ function connectWebSocket() {
 
     socket.onopen = function() {
         logMessage('WebSocket ouvert');
+        connected = true;
+        hideConnectionError(); // Masquer l'erreur s'il y en a une
+        showLoginForm(); // Réafficher le formulaire de login
     };
 
     socket.onmessage = function(event) {
@@ -113,15 +118,69 @@ function connectWebSocket() {
                 logMessage('Erreur: ' + data.message);
                 break;
 
-            // Autres types de messages...
+           
         }
     };
 
-    socket.onclose = function() {
-        logMessage('WebSocket fermé');
-
-        location.reload();
+    // Gestion de la fermeture ou de l'erreur de connexion WebSocket
+    socket.onerror = function() {
+        logMessage('Impossible de se connecter au serveur WebSocket.');
+        showConnectionError();
+        attemptReconnect(); // Essayer de se reconnecter
     };
+
+    socket.onclose = function() {
+        logMessage('Connexion WebSocket fermée.');
+        connected = false; // Indiquer que le client est déconnecté
+        showConnectionError();
+        attemptReconnect(); // Essayer de se reconnecter
+    };
+}
+
+// Fonction pour essayer de se reconnecter régulièrement si déconnecté
+function attemptReconnect() {
+    if (!connected) { // Vérifier si le client est déconnecté avant d'essayer de se reconnecter
+        setTimeout(function() {
+            logMessage('Tentative de reconnexion au serveur...');
+            connectWebSocket(); // Tente une reconnexion
+        }, retryInterval);
+    }
+}
+
+
+// Fonction pour afficher un message d'erreur et masquer le formulaire de login
+function showConnectionError() {
+    document.getElementById('login').style.display = 'none'; // Masquer le formulaire de connexion
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.classList.add('connection-error', 'text-center'); // Utiliser une classe CSS pour styliser le message
+        errorDiv.innerHTML = `
+            <h2>Oops!</h2>
+            <p>On dirait que notre serveur a pris une petite pause café ☕, mais ne vous inquiétez pas, il revient bientôt !</p>
+            <p>Nous essayons de le réveiller...</p>
+        `;
+        const container = document.createElement('div');
+        container.id = 'errorContainer'; // Ajouter un ID pour faciliter la suppression
+        container.classList.add('container', 'd-flex', 'justify-content-center', 'align-items-center', 'vh-100');
+        container.appendChild(errorDiv);
+        document.body.appendChild(container); // Afficher le message d'erreur
+    }
+}
+
+// Fonction pour masquer le message d'erreur de connexion
+function hideConnectionError() {
+    if (errorDiv) {
+        const container = document.getElementById('errorContainer');
+        if (container) {
+            container.remove(); // Supprimer le conteneur
+        }
+        errorDiv = null; // Réinitialiser la référence de l'erreur
+    }
+}
+
+// Fonction pour réafficher le formulaire de login
+function showLoginForm() {
+    document.getElementById('login').style.display = 'block'; // Afficher le formulaire de connexion
 }
 
 function revealAllCells(board) {

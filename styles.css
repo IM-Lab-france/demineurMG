@@ -210,6 +210,31 @@ td.revealed {
     text-align: center;
 }
 
+.connection-error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 20px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+    color: #721c24;
+}
+
+.connection-error h2 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.connection-error p {
+    font-size: 1.2rem;
+    margin: 10px 0;
+}
+
+/* Pour centrer le conteneur au centre de la page */
+.container.vh-100 {
+    height: 100vh;
+}
+
 .popup {
     position: fixed;
     top: 50%;
