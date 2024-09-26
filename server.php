@@ -354,7 +354,14 @@ class MinesweeperServer implements MessageComponentInterface {
             $difficulty = intval($invitation['difficulty']);
 
             // Récupérer les dimensions de la grille
-            list($width, $height) = explode('x', $gridSize);
+            list($widthI, $heightI) = explode('x', $gridSize);
+
+            $width = 10;
+            $height = 10;
+
+            //sécurisation du nombre de mine pour éviter de faire peter le serveur.
+            if($widthI <= 100) { $width = $widthI; }
+            if($heightI <= 100) { $height = $heightI; }
 
             // Calculer le nombre de mines
             $numMines = intval(($width * $height) * ($difficulty / 100));
@@ -786,6 +793,8 @@ class MinesweeperServer implements MessageComponentInterface {
 
     protected function generateBoard($width, $height, $numMines) {
         
+        
+
         $board = [];
 
         for ($x = 0; $x < $width; $x++) {

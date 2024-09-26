@@ -1,6 +1,6 @@
 /* Simple CSS pour styliser l'interface */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Roboto', sans-serif;
     background-image: url('background.png');
     background-size: cover; /* S'assure que l'image couvre toute la fenêtre */
     background-position: center center; /* Centre l'image */
@@ -102,7 +102,7 @@ body {
 }
 
 .mine-number-6 {
-    color: cyan;
+    color: rgb(255, 0, 191);
 }
 
 .mine-number-7 {
@@ -143,6 +143,8 @@ td.flag {
 }
 td.revealed {
     background-color: lightgray;
+    font-weight: 700;
+
 }
 #messages {
     display: none;
@@ -234,6 +236,48 @@ td.revealed {
 .container.vh-100 {
     height: 100vh;
 }
+
+.roboto-light {
+    font-family: "Roboto", sans-serif;
+    font-weight: 300;
+    font-style: normal;
+  }
+  
+  .roboto-regular {
+    font-family: "Roboto", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+  }
+  
+  .roboto-medium {
+    font-family: "Roboto", sans-serif;
+    font-weight: 500;
+    font-style: normal;
+  }
+  
+  .roboto-black {
+    font-family: "Roboto", sans-serif;
+    font-weight: 900;
+    font-style: normal;
+  }
+  
+  .roboto-light-italic {
+    font-family: "Roboto", sans-serif;
+    font-weight: 300;
+    font-style: italic;
+  }
+  
+  .roboto-regular-italic {
+    font-family: "Roboto", sans-serif;
+    font-weight: 400;
+    font-style: italic;
+  }
+  
+  .roboto-medium-italic {
+    font-family: "Roboto", sans-serif;
+    font-weight: 500;
+    font-style: italic;
+  }
 
 .popup {
     position: fixed;
