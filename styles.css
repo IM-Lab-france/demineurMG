@@ -125,11 +125,15 @@ table {
     border-collapse: collapse;
 }
 td {
-    width: 30px;
-    height: 30px;
+    min-width: 20px;
+    min-height: 20px;
+    width: 20px;
+    height: 20px;
     text-align: center;
     border: 1px solid #000;
     cursor: pointer;
+    margin: 0px 0px 0px 0px;
+    font-size: 12px;
 }
 table th {
     
@@ -169,6 +173,8 @@ td.revealed {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    max-width: 100%;
+    max-height: 100%;
 }
 #plateau {
     display: none;
@@ -181,7 +187,10 @@ td.revealed {
     margin: 20px auto; /* Centre horizontalement */
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centrer les éléments à l'intérieur */
+    align-items: center; /* Centre les éléments à l'intérieur */
+    max-width: 90%; /* Limite la largeur maximale du cadre */
+    max-height: 80vh; /* Limite la hauteur maximale du cadre à 80% de la hauteur de la fenêtre */
+    overflow: auto; /* Active les barres de défilement si nécessaire */
 }
 #currentTurnDisplay {
     background-color: rgba(255, 255, 255, 0.9); /* Fond blanc semi-transparent */
@@ -365,7 +374,7 @@ td.revealed {
 /* Mode PC : afficher l'info sur le joueur à gauche de la grille */
 @media (min-width: 769px) {
     #gameContainer {
-        display: none;
+        /*display: none;*/
         justify-content: center;
         align-items: flex-start;
     }
