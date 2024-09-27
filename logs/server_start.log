@@ -457,3 +457,7 @@ PHP Warning:  Undefined array key "REMOTE_ADDR" in /var/www/html/server.php on l
 [2024-09-27T16:00:40.455650+02:00] minesweeper_logger.INFO: OUT: {"type":"player_count","connectedPlayers":2,"gamesInProgress":0} [] []
 [2024-09-27T16:00:40.455755+02:00] minesweeper_logger.INFO: IN  :{"type":"get_player_count"} [] []
 [2024-09-27T16:00:40.455857+02:00] minesweeper_logger.INFO: OUT: {"type":"player_count","connectedPlayers":2,"gamesInProgress":0} [] []
+[2024-09-27T16:00:48.111590+02:00] minesweeper_logger.INFO: IN  :{"type":"ping"} [] []
+[2024-09-27T16:00:48.111870+02:00] minesweeper_logger.INFO: OUT: Pong envoyé à 160 [] []
+[2024-09-27T16:00:52.944049+02:00] minesweeper_logger.INFO: IN  :{"type":"ping"} [] []
+[2024-09-27T16:00:52.944276+02:00] minesweeper_logger.INFO: OUT: Pong envoyé à 108 [] []
