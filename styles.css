@@ -1,7 +1,7 @@
 /* Simple CSS pour styliser l'interface */
 body {
     font-family: 'Roboto', sans-serif;
-    background-image: url('background.png');
+    background-image: url('background2.png');
     background-size: cover; /* S'assure que l'image couvre toute la fenêtre */
     background-position: center center; /* Centre l'image */
     background-repeat: no-repeat; /* Évite la répétition de l'image */
@@ -28,7 +28,7 @@ body {
 }
 
 #availableUser {
-    background-color: rgba(255, 255, 255, 0.8); /* Fond blanc semi-transparent */
+    background-color: rgba(255, 255, 255, 0.9); /* Fond blanc semi-transparent */
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -485,12 +485,12 @@ table.table th, table.table td {
 }
 
 .invite-modal {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    max-height: 80vh;
-    overflow-y: auto;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
 }
 .modal-content {
     background-color: #fff;
