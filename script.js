@@ -172,11 +172,8 @@ function connectWebSocket() {
             case 'register_success':
                 registerError.textContent = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
                 // Afficher le bouton de connexion
-                registerBtn.textContent = 'Se connecter';
-                registerBtn.removeEventListener('click', handleRegister);
-                registerBtn.addEventListener('click', () => {
-                    showLoginModal();
-                });
+                document.getElementById('creationOk').textContent = "Compte créé avec succès. Vous pouvez vous connecter !"
+                showLoginModal();
                 break;
 
             case 'register_failed':
@@ -485,10 +482,10 @@ function displayGameBoard(board, losingCell = null) {
     gameBoardDiv.appendChild(table);
 }
 
-function handleRegister() {
+async function handleRegister() {
     const username = document.getElementById('registerUsername').value;
     const password = document.getElementById('registerPassword').value;
-    sendRegister(username, password);
+    await sendRegister(username, password);
     console.log('Tentative de création de compte pour ' + username);
 }
 
@@ -519,7 +516,7 @@ function handleLogoutSuccess(data) {
         // Le joueur qui a initié la déconnexion doit être redirigé vers l'écran de connexion
         document.getElementById('game').style.display = 'none';
         document.getElementById('navbar').style.display = 'none';
-        document.getElementById('login').style.display = 'block';
+        showLoginModal();
         logMessage('Vous avez été déconnecté.');
     } else {
         // Un autre joueur a été déconnecté, mettre à jour la liste des utilisateurs
@@ -577,7 +574,7 @@ async function sendLogin(username, password) {
     }));
 }
 
-async function sendRegistern(username, password) {
+async function sendRegister(username, password) {
     socket.send(JSON.stringify({
         type: 'register',
         username: username,
@@ -626,7 +623,7 @@ document.getElementById('logoutLink').addEventListener('click', () => {
     socket.send(JSON.stringify({ type: 'logout' }));
     document.getElementById('welcomeMessage').style.display = 'none';
     document.getElementById('logoutLink').style.display = 'none';
-    document.getElementById('login').style.display = 'block';
+    
     document.getElementById('game').style.display = 'none';
     document.getElementById('navbar').style.display = 'none';
     logMessage('Déconnexion de ' + username);
