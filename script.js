@@ -1,3 +1,5 @@
+// script.js
+
 let socket;
 let username;
 let currentGameId;
@@ -7,6 +9,80 @@ let currentPlayerId;
 let currentInvitationId = null;
 let errorDiv = null;
 let retryInterval = 5000;
+
+let isMuted = false;
+
+
+// gestion des sons
+const soundClick = new Audio('sounds/click.mp3');
+const soundMine = new Audio('sounds/mine.mp3');
+const soundFlag = new Audio('sounds/flag.mp3');
+const soundWin = new Audio('sounds/win.mp3');
+const soundLose = new Audio('sounds/lose.mp3');
+const muteButton = document.getElementById('muteButton');
+
+
+muteButton.addEventListener('click', () => {
+    isMuted = !isMuted;
+    const newIcon = isMuted ? '🔇' : '🔊';
+    muteButton.textContent = newIcon;
+
+    // Mute ou unmute tous les sons
+    [soundClick, soundMine, soundFlag, soundWin, soundLose].forEach(sound => {
+        sound.muted = isMuted;
+    });
+});
+
+// gestion de l'aide en jeu
+// Fonction pour afficher l'overlay d'aide
+function showHelpOverlay() {
+    const overlay = document.getElementById('helpOverlay');
+    overlay.style.display = 'flex'; // Assurez-vous que l'overlay est affiché
+    // Force un reflow pour que la transition fonctionne
+    overlay.offsetHeight; // Déclenche un reflow
+    overlay.classList.add('show'); // Ajoute la classe pour démarrer la transition
+}
+
+// Fonction pour cacher l'overlay d'aide
+function hideHelpOverlay() {
+    const overlay = document.getElementById('helpOverlay');
+    overlay.classList.remove('show'); // Retire la classe pour démarrer la transition de disparition
+    // Une fois la transition terminée, cacher l'overlay
+    overlay.addEventListener('transitionend', function handler() {
+        overlay.style.display = 'none'; // Cache l'overlay après la transition
+        overlay.removeEventListener('transitionend', handler); // Retire l'écouteur pour éviter les appels multiples
+    });
+}
+
+// Vérifier la préférence de l'utilisateur
+function checkHelpPreference() {
+    const dontShowHelp = localStorage.getItem('dontShowHelpAgain');
+    if (dontShowHelp !== 'true') {
+        showHelpOverlay();
+    }
+}
+
+// Écouteur pour le bouton 'Fermer' de l'aide
+document.getElementById('closeHelpBtn').addEventListener('click', () => {
+    const dontShowAgain = document.getElementById('dontShowHelpAgain').checked;
+    if (dontShowAgain) {
+        localStorage.setItem('dontShowHelpAgain', 'true');
+    }
+    hideHelpOverlay();
+});
+
+// Écouteur pour l'icône du point d'interrogation
+document.getElementById('helpIcon').addEventListener('click', () => {
+    showHelpOverlay();
+});
+function hideHelpIcon() {
+    const helpIcon = document.getElementById('helpIcon');
+    helpIcon.classList.add('hidden');
+}
+function showHelpIcon() {
+    const helpIcon = document.getElementById('helpIcon');
+    helpIcon.classList.remove('hidden');
+}
 
 // Fonction pour afficher les messages WebSocket dans la div messages
 function logMessage(message) {
@@ -21,7 +97,7 @@ function logMessage(message) {
 
 // Connexion WebSocket
 function connectWebSocket() {
-    socket = new WebSocket('ws://192.168.1.170:8080');
+    socket = new WebSocket('ws://192.168.1.170:8080'); 
 
     socket.onopen = function() {
         logMessage('WebSocket ouvert');
@@ -75,6 +151,10 @@ function connectWebSocket() {
 
 
                 logMessage('Tour actuel: ' + data.turn);
+
+                showHelpIcon();
+                checkHelpPreference();
+
                 break;
 
             case 'update_board':
@@ -95,13 +175,19 @@ function connectWebSocket() {
                 break;
 
             case 'game_over':
+
+                if (data.winner.includes('Vous avez gagné')) {
+                    soundWin.play();
+                } else {
+                    soundLose.play();
+                }
                 // Fin de partie et affichage du gagnant
                 displayGameBoard(data.board, data.losingCell);
                 showWinnerModal(data.winner, data.game_id);
             
                 // Révéler toutes les cellules (mines et chiffres)
                 revealAllCells(data.board);
-
+                hideHelpIcon();
                 break;
                 // Ajout de la gestion de la déconnexion d'un joueur
             case 'player_disconnected':
@@ -292,28 +378,45 @@ function displayGameBoard(board, losingCell = null) {
         const tr = document.createElement('tr');
         row.forEach((cell, y) => {
             const td = document.createElement('td');
+            td.classList.add('cell');
             td.dataset.x = x;
             td.dataset.y = y;
+
+            const cellInner = document.createElement('div');
+            cellInner.classList.add('cell-inner');
+
+            const cellFront = document.createElement('div');
+            cellFront.classList.add('cell-front');
+
+            const cellBack = document.createElement('div');
+            cellBack.classList.add('cell-back');
 
             if (cell.revealed) {
                 td.classList.add('revealed');
                 if (cell.mine) {
-                    td.textContent = '💣'; // Afficher la mine
+                    soundMine.play();
+                    cellBack.textContent = '💣'; // Afficher la mine
 
                     // Vérifier si c'est la mine qui a provoqué la fin de la partie
                     if (losingCell && x == losingCell.x && y == losingCell.y) {
-                        td.classList.add('mine-triggered');
+                        cellBack.classList.add('mine-triggered');
                     }
                 } else if (cell.adjacentMines > 0) {
-                    td.textContent = cell.adjacentMines; // Afficher le nombre de mines adjacentes
+                    cellBack.textContent = cell.adjacentMines; // Afficher le nombre de mines adjacentes
 
                     // Ajouter une classe pour la couleur du nombre de mines
-                    td.classList.add(`mine-number-${cell.adjacentMines}`);
+                    cellBack.classList.add(`mine-number-${cell.adjacentMines}`);
                 }
-            } else if (cell.flagged) {
-                td.classList.add('flag');
-                td.textContent = '🚩'; // Afficher le drapeau
+            } else {
+                if (cell.flagged) {
+                    td.classList.add('cell-flagged'); // Ajouter la classe pour les drapeaux
+                    cellFront.textContent = '🚩'; // Afficher le drapeau
+                }
             }
+
+            cellInner.appendChild(cellFront);
+            cellInner.appendChild(cellBack);
+            td.appendChild(cellInner);
 
             // Gestion des clics (révélation des cases)
             td.addEventListener('click', () => revealCell(x, y));
@@ -372,6 +475,7 @@ function revealCell(x, y) {
             x: x,
             y: y
         }));
+        soundClick.play();
         logMessage('Cellule révélée: (' + x + ', ' + y + ')');
     } else {
         console.error('game_id manquant lors de la révélation de la cellule');
@@ -386,6 +490,7 @@ function placeFlag(x, y) {
             x: x,
             y: y
         }));
+        soundFlag.play();
         logMessage('Drapeau posé: (' + x + ', ' + y + ')');
     } else {
         console.error('game_id manquant lors du placement du drapeau');
@@ -402,25 +507,19 @@ function showWinnerModal(winnerMessage, gameId) {
     
 }
 
-function hashPassword(password) {
-    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex); // Hachage en SHA-256 et conversion en hexadécimal
-}
-
 async function sendLogin(username, password) {
-    const hashedPassword = hashPassword(password); // Crypter le mot de passe
     socket.send(JSON.stringify({
         type: 'login',
         username: username,
-        password: hashedPassword // Envoi du mot de passe crypté
+        password: password
     }));
 }
 
 async function sendRegistern(username, password) {
-    const hashedPassword = hashPassword(password); // Crypter le mot de passe
     socket.send(JSON.stringify({
         type: 'register',
         username: username,
-        password: hashedPassword // Envoi du mot de passe crypté
+        password: password // Envoi du mot de passe crypté
     }));
 }
 

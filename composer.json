@@ -6,6 +6,7 @@
     "require": {
         "filp/whoops": "^2.15",
         "cboden/ratchet": "^0.4.4",
-        "monolog/monolog": "^3.7"
+        "monolog/monolog": "^3.7",
+        "vlucas/phpdotenv": "^5.6"
     }
 }

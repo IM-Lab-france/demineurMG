@@ -1,5 +1,19 @@
 <?php
 
+// server.php
+if ($_SERVER['REMOTE_ADDR'] === '192.168.1.170') {
+    // Afficher les erreurs pour les connexions locales
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+} else {
+    // Ne pas afficher les erreurs pour les connexions externes
+    ini_set('display_errors', 0);
+    ini_set('display_startup_errors', 0);
+    error_reporting(0);
+}
+
+
 date_default_timezone_set('Europe/Paris');
 
 require __DIR__ . '/vendor/autoload.php';

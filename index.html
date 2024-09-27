@@ -27,6 +27,9 @@
                 <li class="nav-item">
                     <a class="nav-link" href="scores.html">Scores</a>
                 </li>
+                <li>
+                    <button id="muteButton" class="btn btn-light">🔊</button>
+                </li>
                 <li class="nav-item">
                     <a id="logoutLink" class="nav-link text-danger" href="#">Déconnexion</a>
                 </li>
@@ -35,6 +38,35 @@
         <span id="welcomeMessage" class="navbar-text ml-auto pr-3">Bienvenue, <span id="navbarUserDisplay"></span></span>
     </nav>
 
+    <!-- Aide Overlay -->
+    <div id="helpOverlay" class="help-overlay">
+        <div class="help-content">
+            <h2>❓ Besoin d'aide ?</h2>
+            <p>Bienvenue dans le démineur multijoueur ! Voici comment jouer, et n'oubliez pas : on vous observe...</p>
+            <ul>
+                <li>
+                    🖱️ <strong>Cliquez gauche</strong> sur une case pour la révéler. Révélez-les toutes, si vous osez.
+                </li>
+                <li>
+                    🚩 <strong>Cliquez droit</strong> pour placer un drapeau sur une case suspecte. Mais attention, les erreurs coûtent cher...
+                </li>
+                <li>
+                    💣 Évitez de cliquer sur les mines, sauf si vous voulez voir ce qui se passe...
+                </li>
+                <li>
+                    🔄 Le jeu se joue à tour de rôle avec votre adversaire. Ne le faites pas attendre trop longtemps, il pourrait s'impatienter.
+                </li>
+                <li>
+                    🔊 Le son vous fait peur ? Vous pouvez toujours le couper en cliquant sur l'icône 🔇, mais où est le fun sans quelques frissons ?
+                </li>
+            </ul>
+            <label>
+                <input type="checkbox" id="dontShowHelpAgain">
+                Ne plus me montrer l'aide
+            </label>
+            <button id="closeHelpBtn" class="btn btn-primary">Fermer</button>
+        </div>
+    </div>
     <!-- Formulaire de connexion -->
     <div id="login" class="container text-center mt-5">
         <h2>Connexion / Création de compte</h2>
@@ -113,6 +145,11 @@
             </form>
         </div>
     </div>
+
+    
+
+    <!-- Icône du Point d'Interrogation -->
+    <div id="helpIcon" class="help-icon hidden" role="button" aria-label="Afficher l'aide" tabindex="0">❓</div>
 
     <!-- jQuery, Popper.js, and Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
