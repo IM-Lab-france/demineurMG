@@ -13,7 +13,6 @@ if ($_SERVER['REMOTE_ADDR'] === '192.168.1.170') {
     error_reporting(0);
 }
 
-
 date_default_timezone_set('Europe/Paris');
 
 require __DIR__ . '/vendor/autoload.php';

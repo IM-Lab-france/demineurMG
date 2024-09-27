@@ -429,26 +429,59 @@ td.revealed {
 }
 
 .modal {
+    display: flex; /* Affiché par défaut pour faciliter les transitions */
     position: fixed;
-    z-index: 1000;
-    left: 0;
     top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    overflow: auto;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
+.invite-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-height: 80vh;
+    overflow-y: auto;
+}
 .modal-content {
-    background-color: white;
-    margin: 15% auto;
+    background-color: #fff;
     padding: 20px;
-    border: 1px solid #888;
-    width: 50%;
+    width: 90%;
+    max-width: 400px;
     border-radius: 10px;
     text-align: center;
+    animation: fadeIn 0.5s;
+    /* Retirer la position relative */
+    /* position: relative; */
+    /* Ajouter margin pour s'assurer que le contenu est centré horizontalement */
+    margin: 0 auto;
+}
+/* Animation pour l'apparition */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
 }
 
+/* Animation pour la disparition avec rebond */
+@keyframes bounceOut {
+    20% { transform: translateY(-10px); }
+    100% { transform: translateY(100vh); opacity: 0; }
+}
+/* Classe pour déclencher l'animation de rebond */
+.modal.bounceOut .modal-content {
+    animation: bounceOut 0.7s forwards;
+}
+
+/* Cacher le modal lorsque non affiché */
+.hidden {
+    display: none;
+}
 .close {
     color: #aaa;
     float: right;

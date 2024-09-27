@@ -21,6 +21,44 @@ const soundWin = new Audio('sounds/win.mp3');
 const soundLose = new Audio('sounds/lose.mp3');
 const muteButton = document.getElementById('muteButton');
 
+const loginModal = document.getElementById('loginModal');
+const registerModal = document.getElementById('registerModal');
+const showRegisterModalLink = document.getElementById('showRegisterModal');
+const showLoginModalLink = document.getElementById('showLoginModal');
+
+const loginBtn = document.getElementById('loginBtn');
+const registerBtn = document.getElementById('registerBtn');
+
+const loginError = document.getElementById('loginError');
+const registerError = document.getElementById('registerError');
+
+// Fonction pour afficher le modal de connexion
+function showLoginModal() {
+    registerModal.classList.add('hidden');
+    loginModal.classList.remove('hidden');
+}
+
+// Fonction pour afficher le modal de création de compte
+function showRegisterModal() {
+    loginModal.classList.add('hidden');
+    registerModal.classList.remove('hidden');
+}
+
+// Afficher le modal de connexion au chargement
+window.addEventListener('load', () => {
+    showLoginModal();
+});
+
+// Écouteurs pour les liens
+showRegisterModalLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    showRegisterModal();
+});
+
+showLoginModalLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    showLoginModal();
+});
 
 muteButton.addEventListener('click', () => {
     isMuted = !isMuted;
@@ -103,7 +141,7 @@ function connectWebSocket() {
         logMessage('WebSocket ouvert');
         connected = true;
         hideConnectionError(); // Masquer l'erreur s'il y en a une
-        showLoginForm(); // Réafficher le formulaire de login
+        showLoginModal(); // Réafficher le formulaire de login
     };
 
     socket.onmessage = function(event) {
@@ -113,7 +151,7 @@ function connectWebSocket() {
         switch (data.type) {
             case 'login_failed':
                 // Afficher le message d'erreur et réinitialiser les inputs
-                document.getElementById('loginError').textContent = 'Login ou mot de passe incorrect.';
+                loginError.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
                 document.getElementById('username').value = '';
                 document.getElementById('password').value = '';
                 break;
@@ -121,7 +159,7 @@ function connectWebSocket() {
             case 'login_success':
                 currentPlayerId = data.playerId; 
                 // Masquer la section de connexion et afficher la liste des joueurs
-                document.getElementById('login').style.display = 'none';
+                hideModal(loginModal); 
                 document.getElementById('game').style.display = 'block';
                 document.getElementById('navbarUserDisplay').textContent = data.username;
                 document.getElementById('navbar').style.display = 'block';
@@ -129,6 +167,20 @@ function connectWebSocket() {
                 document.getElementById('logoutLink').style.display = 'block';
                 document.getElementById('availableUser').style.display = 'block';
                 refreshPlayersList(data.players);
+                break;
+
+            case 'register_success':
+                registerError.textContent = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+                // Afficher le bouton de connexion
+                registerBtn.textContent = 'Se connecter';
+                registerBtn.removeEventListener('click', handleRegister);
+                registerBtn.addEventListener('click', () => {
+                    showLoginModal();
+                });
+                break;
+
+            case 'register_failed':
+                registerError.textContent = 'Erreur lors de la création du compte : ' + data.message;
                 break;
 
             case 'connected_players':
@@ -433,6 +485,16 @@ function displayGameBoard(board, losingCell = null) {
     gameBoardDiv.appendChild(table);
 }
 
+function handleRegister() {
+    const username = document.getElementById('registerUsername').value;
+    const password = document.getElementById('registerPassword').value;
+    sendRegister(username, password);
+    console.log('Tentative de création de compte pour ' + username);
+}
+
+// Ajouter l'écouteur pour le bouton de création de compte
+registerBtn.addEventListener('click', handleRegister);
+
 // Fonction pour vider le plateau de jeu
 function clearGameBoard() {
     const gameBoardDiv = document.getElementById('gameBoard');
@@ -535,22 +597,29 @@ document.getElementById('closeModalBtn').addEventListener('click', () => {
     }));
 });
 
-// Gestion des événements de connexion et déconnexion
-document.getElementById('loginBtn').addEventListener('click', async () => {
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    await sendLogin(username, password); // Envoyer les informations de login au serveur
-    logMessage('Tentative de connexion pour ' + username);
-    connected = true;
+loginBtn.addEventListener('click', async () => {
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+    await sendLogin(username, password); // Fonction existante pour envoyer les infos de login
+    console.log('Tentative de connexion pour ' + username);
 });
 
-document.getElementById('registerBtn').addEventListener('click', async () => {
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    await sendRegistern(username, password); // Envoyer les informations de login au serveur
-    logMessage('Tentative de création de compte pour ' + username);
+// Gestion de la création de compte
+registerBtn.addEventListener('click', async () => {
+    const username = document.getElementById('registerUsername').value;
+    const password = document.getElementById('registerPassword').value;
+    await sendRegister(username, password); // Fonction existante pour envoyer les infos de création de compte
+    console.log('Tentative de création de compte pour ' + username);
 });
 
+// Fonction pour cacher le modal avec animation de rebond
+function hideModal(modal) {
+    modal.classList.add('bounceOut'); // Ajouter la classe pour l'animation
+    modal.addEventListener('animationend', () => {
+        modal.classList.add('hidden'); // Cacher le modal après l'animation
+        modal.classList.remove('bounceOut'); // Réinitialiser la classe
+    }, { once: true });
+}
 
 document.getElementById('logoutLink').addEventListener('click', () => {
     clearGameBoard(); 
