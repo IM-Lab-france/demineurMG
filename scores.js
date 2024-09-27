@@ -61,7 +61,10 @@ function refreshScores(players) {
             <td>${player.username}</td>
             <td>${gamesPlayed}</td>
             <td>${player.games_won || 0}</td>
-            <td>${winPercentage.toFixed(2)}%</td>
+            <td><div class="progress">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: ${winPercentage.toFixed(2)}%;" aria-valuenow="${winPercentage.toFixed(2)}" aria-valuemin="0" aria-valuemax="100">${winPercentage.toFixed(2)}%</div>
+                </div>
+            </td>
         `;
         scoresTable.appendChild(row);
     });

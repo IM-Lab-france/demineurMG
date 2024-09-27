@@ -416,16 +416,59 @@ td.revealed {
 
 
 #scoresContainer {
-    background-color: rgba(255, 255, 255, 0.8); /* Fond blanc semi-transparent */
+    background-color: rgba(255, 255, 255, 0.9); /* Fond blanc semi-transparent */
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Ajoute une légère ombre */
-    margin: 25% auto !important; /* Centre horizontalement et ajoute de l'espace en haut */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    margin: 5% auto;
+    max-width: 80%; /* Limite la largeur */
 }
 
 #scoresTableContainer {
     margin-top: 20px;
     width: 100%;
+}
+
+/* Couleurs Bootstrap et autres personnalisations */
+table.table {
+    background-color: rgba(255, 255, 255, 0.9); /* Fond du tableau */
+}
+
+thead.thead-dark th {
+    background-color: #343a40; /* Couleur de l'en-tête */
+    color: white;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(173, 216, 230, 0.6); /* Couleur au survol */
+}
+
+/* Couleurs pour les cellules */
+table.table td {
+    color: #333;
+    font-size: 1.1em; /* Taille de police légèrement augmentée */
+}
+
+table.table td:first-child {
+    font-weight: bold;
+    color: #007bff; /* Couleur différente pour le nom du joueur */
+}
+
+/* Bordures pour un effet propre et défini */
+table.table {
+    border: 2px solid #dee2e6;
+}
+
+table.table th, table.table td {
+    border: 1px solid #dee2e6;
+}
+
+/* Ajustements pour mobile */
+@media (max-width: 768px) {
+    table.table th, table.table td {
+        font-size: 1em; /* Réduit légèrement la taille de la police sur mobile */
+        padding: 10px;
+    }
 }
 
 .modal {
