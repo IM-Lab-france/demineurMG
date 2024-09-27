@@ -121,6 +121,13 @@ class MinesweeperServer implements MessageComponentInterface {
             case 'get_player_count':
                 $this->handleGetPlayerCount($from);
                 break;
+            case 'ping':
+                $from->send(json_encode([
+                    'type' => 'pong',
+                    'message' => 'Pong reçu'
+                ]));
+                $this->logger->info("OUT: Pong envoyé à {$from->resourceId}");
+                break;
         }
     }
 

@@ -135,13 +135,22 @@ function logMessage(message) {
 
 // Connexion WebSocket
 function connectWebSocket() {
-    socket = new WebSocket('ws://192.168.1.170:8080'); 
+    socket = new WebSocket('wss://fozzy.fr:9443'); 
 
     socket.onopen = function() {
         logMessage('WebSocket ouvert');
         connected = true;
         hideConnectionError(); // Masquer l'erreur s'il y en a une
         showLoginModal(); // Réafficher le formulaire de login
+
+        // Démarrer le keep-alive (ping) toutes les 30 secondes
+        keepAliveInterval = setInterval(function() {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'ping' }));
+                logMessage('Ping envoyé au serveur');
+            }
+        }, 15000); // Envoie un ping toutes les 30 secondes
+
     };
 
     socket.onmessage = function(event) {
@@ -149,6 +158,10 @@ function connectWebSocket() {
         logMessage('Message reçu du serveur: ' + JSON.stringify(data));
 
         switch (data.type) {
+            case 'pong':
+                console.log("Pong reçu du serveur");
+                break;
+
             case 'login_failed':
                 // Afficher le message d'erreur et réinitialiser les inputs
                 loginError.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
@@ -269,6 +282,7 @@ function connectWebSocket() {
         logMessage('Connexion WebSocket fermée.');
         connected = false; // Indiquer que le client est déconnecté
         showConnectionError();
+        clearInterval(keepAliveInterval);
         attemptReconnect(); // Essayer de se reconnecter
     };
 }
@@ -286,7 +300,7 @@ function attemptReconnect() {
 
 // Fonction pour afficher un message d'erreur et masquer le formulaire de login
 function showConnectionError() {
-    document.getElementById('login').style.display = 'none'; // Masquer le formulaire de connexion
+    
     if (!errorDiv) {
         errorDiv = document.createElement('div');
         document.getElementById('availableUser').style.display = 'none';

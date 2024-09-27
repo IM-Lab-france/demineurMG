@@ -166,7 +166,7 @@ $logFiles = getLogFiles($logDirPath);
 
     function connectWebSocket() {
         showNotification('Tentative de connexion au WebSocket...', 'info'); // Message indiquant la tentative de connexion
-        socket = new WebSocket('ws://192.168.1.170:8080'); // Remplacez l'adresse par celle de votre serveur
+        socket = new WebSocket('wss://fozzy.fr:9443'); // Remplacez l'adresse par celle de votre serveur
 
         socket.onopen = function() {
             showNotification('Connexion WebSocket réussie.', 'success');
