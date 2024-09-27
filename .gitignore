@@ -1,6 +1,9 @@
 /v1
-logs/
+logs/minesweeper-*
+logs/monitor_server-*
 admin/.htpasswd
 admin/logs/monitor_server-2024-09-26.log
 logs/.htpasswd
 .env
+logs/server_start.log
+**/logs
