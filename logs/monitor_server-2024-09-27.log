@@ -976,3 +976,8 @@
 [2024-09-27T15:46:21.996520+02:00] monitor_server.INFO: Le serveur a été démarré. [] []
 [2024-09-27T15:46:21.996820+02:00] monitor_server.INFO: Fichier de verrouillage supprimé après démarrage du serveur. [] []
 [2024-09-27T15:47:02.097893+02:00] monitor_logger.INFO: Le serveur fonctionne correctement. [] []
+[2024-09-27T15:48:01.179508+02:00] monitor_logger.INFO: Le serveur fonctionne correctement. [] []
+[2024-09-27T15:49:01.264935+02:00] monitor_logger.INFO: Le serveur fonctionne correctement. [] []
+[2024-09-27T15:50:01.504879+02:00] monitor_logger.INFO: Le serveur fonctionne correctement. [] []
+[2024-09-27T15:51:01.618091+02:00] monitor_logger.INFO: Le serveur fonctionne correctement. [] []
+[2024-09-27T15:52:01.726415+02:00] monitor_logger.INFO: Le serveur fonctionne correctement. [] []

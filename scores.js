@@ -6,7 +6,7 @@ window.onload = function() {
 
 // Connexion WebSocket
 function connectWebSocket() {
-    socket = new WebSocket('ws://192.168.1.170:8080');
+    socket = new WebSocket('wss://fozzy.fr:9443');
 
     socket.onopen = function() {
         console.log('WebSocket ouvert');
