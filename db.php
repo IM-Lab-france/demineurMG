@@ -3,7 +3,7 @@ class Database {
     private $pdo;
 
     public function __construct() {
-        $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+        $dotenv = Dotenv\Dotenv::createImmutable('/var/www/secure');
         $dotenv->load();
 
         $dsn = 'mysql:host=' . $_ENV['DB_HOST'] . ';dbname=' . $_ENV['DB_NAME'];
