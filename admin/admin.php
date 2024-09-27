@@ -25,7 +25,7 @@ use Monolog\Handler\RotatingFileHandler;
 $logger = new Logger('monitor_server');
 
 // Définir le répertoire des fichiers de log
-$logDirPath = __DIR__ . '/../logs/';
+$logDirPath = __DIR__ . '/../../logs/';
 
 // Fonction pour obtenir le fichier de log le plus récent
 function getLatestLogFile($logDirPath) {

@@ -1,17 +1,11 @@
 <?php
 
 // server.php
-if ($_SERVER['REMOTE_ADDR'] === '192.168.1.170') {
+
     // Afficher les erreurs pour les connexions locales
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
-} else {
-    // Ne pas afficher les erreurs pour les connexions externes
-    ini_set('display_errors', 0);
-    ini_set('display_startup_errors', 0);
-    error_reporting(0);
-}
 
 date_default_timezone_set('Europe/Paris');
 
@@ -33,7 +27,7 @@ require 'db.php';
 $logger = new Logger('minesweeper_logger');
 
 // Handler pour les fichiers tournants avec une taille maximale de 5Mo par fichier
-$logFilePath = __DIR__ . '/logs/minesweeper.log'; // Chemin du fichier log
+$logFilePath = __DIR__ . '/../logs/minesweeper.log'; // Chemin du fichier log
 $rotatingHandler = new RotatingFileHandler($logFilePath, 0, Logger::DEBUG);
 $rotatingHandler->setFilenameFormat('{filename}-{date}', 'Y-m-d'); // Optionnel : format du fichier
 
@@ -128,6 +122,15 @@ class MinesweeperServer implements MessageComponentInterface {
                 ]));
                 $this->logger->info("OUT: Pong envoyé à {$from->resourceId}");
                 break;
+            case 'get_active_games':
+                $this->handleGetActiveGames($from);
+                break;
+            case 'get_game_state':
+                $this->handleGetGameState($from, $data['gameId']);
+                break;
+            case 'add_spectator':
+                $this->addSpectator($from, $data);
+                break;
         }
     }
 
@@ -177,6 +180,87 @@ class MinesweeperServer implements MessageComponentInterface {
     public function onError(ConnectionInterface $from, \Exception $e) {
         $this->logger->error($e->getMessage() );
         $from->close();
+    }
+
+    // Fonction pour inscrire un spectateur à une partie
+    protected function addSpectator(ConnectionInterface $from, $data) {
+        $gameId = $data['gameId'];
+
+        if (isset($this->games[$gameId])) {
+            // Ajouter le spectateur à la liste des spectateurs de cette partie
+            $this->games[$gameId]['spectators'][] = $from->resourceId;
+
+            $from->send(json_encode([
+                'type' => 'spectator_join_success',
+                'message' => 'Vous suivez maintenant la partie ' . $gameId
+            ]));
+        } else {
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Partie introuvable.'
+            ]));
+        }
+    }
+
+
+    // Fonction pour envoyer les mises à jour aux spectateurs
+    protected function updateSpectators($gameId) {
+        if (isset($this->games[$gameId]['spectators'])) {
+            foreach ($this->games[$gameId]['spectators'] as $spectatorId) {
+                $connection = $this->getConnectionFromPlayerId($spectatorId);
+                if ($connection) {
+                    $connection->send(json_encode([
+                        'type' => 'update_board',
+                        'board' => $this->games[$gameId]['board'],
+                        'turn' => $this->games[$gameId]['currentTurn'],
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                    ]));
+                }
+            }
+        }
+    }
+
+
+    // Fonction pour récupérer l'état d'une partie spécifique
+    protected function handleGetGameState(ConnectionInterface $from, $gameId) {
+        
+        if (isset($this->games[$gameId])) {
+            $gameState = $this->games[$gameId]; // Récupérer l'état du jeu
+
+            // Envoyer l'état du jeu au client
+            $from->send(json_encode([
+                'type' => 'game_state',
+                'state' => $gameState
+            ]));
+        } else {
+            // Envoyer un message d'erreur si la partie n'existe pas
+            $from->send(json_encode([
+                'type' => 'error',
+                'message' => 'Partie introuvable.'
+            ]));
+        }
+    }
+    
+    protected function handleGetActiveGames(ConnectionInterface $from) {
+        $activeGames = [];
+    
+        foreach ($this->games as $gameId => $game) {
+            $playerNames = array_map(function ($playerId) {
+                return $this->players[$playerId]['username']; // Récupérer les noms des joueurs
+            }, $game['players']);
+    
+            // Inclure l'ID de la partie
+            $activeGames[] = [
+                'gameId' => $gameId, // Envoi de l'ID de la partie
+                'players' => $playerNames
+            ];
+        }
+    
+        // Envoyer la liste des parties au client
+        $from->send(json_encode([
+            'type' => 'active_games',
+            'games' => $activeGames // Utiliser un tableau d'objets plutôt que des clés
+        ]));
     }
 
     protected function handleGetPlayerCount(ConnectionInterface $from) {
@@ -608,6 +692,7 @@ class MinesweeperServer implements MessageComponentInterface {
                     ]));
                 }
             }
+            $this->updateSpectators($gameId);
         }
     }
 
@@ -650,6 +735,7 @@ class MinesweeperServer implements MessageComponentInterface {
                 ]));
             }
         }
+        $this->updateSpectators($gameId);
     }
 
     protected function handleReadyForNewGame(ConnectionInterface $from, $data) {
