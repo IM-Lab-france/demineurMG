@@ -269,7 +269,7 @@ function displayWinner(winner, winner_name, board) {
     
     // Révéler toutes les cellules du plateau
     displayGameBoard(board, null); // Pas besoin de `currentPlayer`, la partie est finie
-
+    startGamesListAutoRefresh();
     // Afficher le résultat
     currentTurnDisplayDev.style.display = 'none'; 
 
