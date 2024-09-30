@@ -503,12 +503,26 @@ class MinesweeperServer implements MessageComponentInterface {
             // Générer le plateau
             $board = $this->generateBoard($width, $height, $numMines);
     
+            // Récupérer les resourceId des deux joueurs
+            $inviterResourceId = $invitation['inviter'];  // resourceId du joueur qui a envoyé l'invitation
+            $inviteeResourceId = $from->resourceId;       // resourceId du joueur qui a accepté l'invitation
+    
+            // Tirer un nombre aléatoire entre 0 et 1
+            $randomNumber = rand(0, 100) / 100;
+    
+            // Affecter $firstPlay en fonction du tirage
+            if ($randomNumber > 0.5) {
+                $firstPlay = $inviterResourceId;  // Le joueur qui a lancé la partie joue en premier
+            } else {
+                $firstPlay = $inviteeResourceId;  // Le joueur qui a accepté l'invitation joue en premier
+            }
+    
             // Créer la partie
             $gameId = uniqid();
             $this->games[$gameId] = [
-                'players' => [$from->resourceId, $invitation['inviter']],
+                'players' => [$inviteeResourceId, $inviterResourceId],  // Stocker les deux resourceId
                 'board' => $board,
-                'currentTurn' => $from->resourceId
+                'currentTurn' => $firstPlay  // Utiliser $firstPlay pour déterminer qui commence
             ];
     
             // Envoyer les informations de la partie aux deux joueurs
@@ -518,12 +532,15 @@ class MinesweeperServer implements MessageComponentInterface {
                     // Utilisez une fonction pour masquer les mines et adjacentMines
                     $maskedBoard = $this->maskMinesForPlayer($board);
     
+                    // Récupérer le nom du joueur qui doit jouer en premier
+                    $currentPlayerName = $this->players[$this->games[$gameId]['currentTurn']]['username'];
+    
                     $connection->send(json_encode([
                         'type' => 'game_start',
                         'game_id' => $gameId,
                         'board' => $maskedBoard,  // N'envoyez pas les mines
                         'turn' => $this->games[$gameId]['currentTurn'],
-                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
+                        'currentPlayer' => $currentPlayerName  // Envoyer le nom du joueur qui commence
                     ]));
                 }
             }
