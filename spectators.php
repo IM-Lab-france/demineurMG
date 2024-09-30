@@ -8,7 +8,23 @@
     <link rel="stylesheet" href="styles.css"> <!-- Lien vers le fichier CSS -->
 </head>
 <body class="bg-light">
-
+<!-- Inclusion du menu commun -->
+<nav id="navbar" class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+                <a class="nav-link" href="index.html">Jouer</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="scores.html">Scores</a>
+            </li>
+        </ul>
+    </div>
+    <span id="welcomeMessage" class="navbar-text ml-auto pr-3">Bienvenue, <span id="navbarUserDisplay"></span></span>
+</nav>
 <div class="container mt-5  transparent-bg">
     <h1 class="text-center">Spectateurs</h1>
 
@@ -310,6 +326,13 @@ function stopGamesListAutoRefresh() {
         refreshGamesListIntervalId = null;
     }
 }
+
+// Sélectionner les éléments du menu burger et des liens
+const navbarToggler = document.querySelector('#navbar');
+const navbarCollapse = document.querySelector('.navbar-collapse');
+const navLinks = document.querySelectorAll('.nav-link');
+
+
 </script>
 
 </body>
