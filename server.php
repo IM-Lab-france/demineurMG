@@ -185,14 +185,30 @@ class MinesweeperServer implements MessageComponentInterface {
     // Fonction pour inscrire un spectateur à une partie
     protected function addSpectator(ConnectionInterface $from, $data) {
         $gameId = $data['gameId'];
-
+    
         if (isset($this->games[$gameId])) {
             // Ajouter le spectateur à la liste des spectateurs de cette partie
             $this->games[$gameId]['spectators'][] = $from->resourceId;
-
+    
+            // Récupérer la taille de la grille pour la partie
+            $board = $this->games[$gameId]['board'];
+            $gridWidth = count($board);
+            $gridHeight = count($board[0]);
+    
+            // Récupérer les noms des joueurs
+            $player1Id = $this->games[$gameId]['players'][0];
+            $player2Id = $this->games[$gameId]['players'][1];
+            $player1Name = $this->players[$player1Id]['username'];
+            $player2Name = $this->players[$player2Id]['username'];
+    
             $from->send(json_encode([
                 'type' => 'spectator_join_success',
-                'message' => 'Vous suivez maintenant la partie ' . $gameId
+                'message' => 'Vous suivez maintenant la partie ' . $gameId,
+                'gridSize' => ['width' => $gridWidth, 'height' => $gridHeight], // Envoi de la taille de la grille
+                'players' => [
+                    'player1' => $player1Name,
+                    'player2' => $player2Name
+                ] // Envoi des noms des joueurs
             ]));
         } else {
             $from->send(json_encode([
@@ -209,9 +225,12 @@ class MinesweeperServer implements MessageComponentInterface {
             foreach ($this->games[$gameId]['spectators'] as $spectatorId) {
                 $connection = $this->getConnectionFromPlayerId($spectatorId);
                 if ($connection) {
+                    // Masquer les mines et adjacentMines pour les spectateurs également
+                    $maskedBoard = $this->maskMinesForPlayer($this->games[$gameId]['board']);
+    
                     $connection->send(json_encode([
                         'type' => 'update_board',
-                        'board' => $this->games[$gameId]['board'],
+                        'board' => $maskedBoard,
                         'turn' => $this->games[$gameId]['currentTurn'],
                         'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
                     ]));
@@ -223,14 +242,18 @@ class MinesweeperServer implements MessageComponentInterface {
 
     // Fonction pour récupérer l'état d'une partie spécifique
     protected function handleGetGameState(ConnectionInterface $from, $gameId) {
-        
         if (isset($this->games[$gameId])) {
             $gameState = $this->games[$gameId]; // Récupérer l'état du jeu
-
-            // Envoyer l'état du jeu au client
+            
+            // Récupérer l'ID du joueur qui doit jouer
+            $currentPlayerId = $this->games[$gameId]['currentTurn'];
+            $currentPlayerName = $this->players[$currentPlayerId]['username']; // Récupérer le nom du joueur
+    
+            // Envoyer l'état du jeu au client avec le nom du joueur actuel
             $from->send(json_encode([
                 'type' => 'game_state',
-                'state' => $gameState
+                'state' => $gameState,
+                'currentPlayer' => $currentPlayerName // Ajouter le nom du joueur actuel
             ]));
         } else {
             // Envoyer un message d'erreur si la partie n'existe pas
@@ -602,6 +625,12 @@ class MinesweeperServer implements MessageComponentInterface {
                 $this->revealAdjacentCells($this->games[$gameId]['board'], $x, $y);
             }
     
+            // Vérifier s'il y a égalité
+            if ($this->checkForDraw($gameId)) {
+                $this->endGame($from, $gameId, null, null, true); // Indiquer une égalité
+                return;
+            }
+    
             // Passer au prochain joueur
             $this->games[$gameId]['currentTurn'] = $this->getNextPlayer($gameId);
     
@@ -646,7 +675,7 @@ class MinesweeperServer implements MessageComponentInterface {
         }
         return $maskedBoard;
     }
-    
+
     protected function handlePlaceFlag(ConnectionInterface $from, $data) {
         $gameId = $data['game_id'];
         $x = $data['x'];
@@ -738,27 +767,43 @@ class MinesweeperServer implements MessageComponentInterface {
         return true; // Toutes les cases sans mines sont révélées
     }
 
-    protected function endGame(ConnectionInterface $from, $gameId, $loserId, $losingCell) {
+    protected function endGame(ConnectionInterface $from, $gameId, $loserId = null, $losingCell = null, $isDraw = false) {
         if (!isset($this->games[$gameId])) return;
-    
+        
         $game = $this->games[$gameId];
         $winnerId = null;
-        $dbWinnerID = null;
-    
-        // Déterminer le gagnant
+        
+        // Déterminer le gagnant ou gérer l'égalité
+        if ($isDraw) {
+            $winnerName = 'Egalité'; // Cas d'égalité
+        } else {
+            foreach ($game['players'] as $playerId) {
+                if ($playerId !== $loserId) {
+                    $winnerId = $playerId;
+                }
+            }
+            $winnerName = $this->players[$winnerId]['username']; // Récupérer le nom du gagnant
+        }
+        
+        // Révéler toutes les cellules du plateau
+        $this->revealAllCells($this->games[$gameId]['board']);
+        
+        // Notifier les joueurs
         foreach ($game['players'] as $playerId) {
-            if ($playerId !== $loserId) {
-                $winnerId = $playerId;
-                $dbWinnerID = $this->players[$playerId]['id'];
+            $connection = $this->getConnectionFromPlayerId($playerId);
+            if ($connection) {
+                $message = $isDraw ? 'La partie se termine par une égalité!' : ($winnerId === $playerId ? 'Vous avez gagné!' : 'Vous avez perdu!');
+                $connection->send(json_encode([
+                    'type' => 'game_over',
+                    'winner' => $message,
+                    'winner_name' => $winnerName,  // Envoi du nom du gagnant ou "Egalité"
+                    'board' => $this->games[$gameId]['board'], // Envoyer le plateau complet révélé
+                    'losingCell' => $losingCell
+                ]));
             }
         }
     
-        // Révéler toutes les cellules du plateau
-        $this->revealAllCells($this->games[$gameId]['board']);
-    
-        $winnerName = $this->players[$winnerId]['username']; // Récupérer le nom du gagnant
-    
-        // 1. Notifier les spectateurs en premier
+        // Notifier les spectateurs
         if (isset($this->games[$gameId]['spectators'])) {
             foreach ($this->games[$gameId]['spectators'] as $spectatorId) {
                 $spectatorConnection = $this->getConnectionFromPlayerId($spectatorId);
@@ -766,53 +811,13 @@ class MinesweeperServer implements MessageComponentInterface {
                     $spectatorConnection->send(json_encode([
                         'type' => 'game_over',
                         'winner_name' => $winnerName,
-                        'message' => "La partie est terminée ! Le vainqueur est $winnerName.",
-                        'board' => $this->games[$gameId]['board'],
-                        'losingCell' => $losingCell
-                    ]));
-                    $this->logger->info("OUT (spectateur): " . json_encode([
-                        'type' => 'game_over',
-                        'winner_name' => $winnerName,
-                        'message' => "La partie est terminée ! Le vainqueur est $winnerName.",
-                        'board' => $this->games[$gameId]['board'],
+                        'message' => $isDraw ? 'La partie se termine par une égalité!' : "La partie est terminée ! Le vainqueur est $winnerName.",
+                        'board' => $this->games[$gameId]['board'],  // Envoyer le plateau complet révélé
                         'losingCell' => $losingCell
                     ]));
                 }
             }
         }
-    
-        // 2. Notifier les joueurs ensuite
-        foreach ($game['players'] as $playerId) {
-            $connection = $this->getConnectionFromPlayerId($playerId);
-            if ($connection) {
-                $message = ($winnerId === $playerId) ? 'Vous avez gagné!' : 'Vous avez perdu!';
-    
-                // Mettre à jour les points dans la base si le joueur a gagné
-                if ($winnerId === $playerId) {
-                    $this->handleGameOver($this->players[$winnerId]['id']);
-                }
-    
-                // Envoyer le plateau complet et le message de fin de partie
-                $connection->send(json_encode([
-                    'type' => 'game_over',
-                    'winner' => $message,
-                    'winner_name' => $winnerName,  // Envoi du nom du gagnant
-                    'board' => $this->games[$gameId]['board'], // Envoyer le plateau complet
-                    'losingCell' => $losingCell
-                ]));
-    
-                $this->logger->info("OUT (joueur): " . json_encode([
-                    'type' => 'game_over',
-                    'winner' => $message,
-                    'winner_name' => $winnerName,  // Envoi du nom du gagnant
-                    'board' => $this->games[$gameId]['board'], // Envoyer le plateau complet
-                    'losingCell' => $losingCell
-                ]));
-            }
-        }
-    
-        // Envoyer la liste mise à jour des joueurs connectés
-        $this->sendConnectedPlayersList($from);
     
         // Supprimer la partie
         unset($this->games[$gameId]);

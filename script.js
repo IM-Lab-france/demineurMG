@@ -19,6 +19,7 @@ const soundMine = new Audio('sounds/mine.mp3');
 const soundFlag = new Audio('sounds/flag.mp3');
 const soundWin = new Audio('sounds/win.mp3');
 const soundLose = new Audio('sounds/lose.mp3');
+const soundTie = new Audio('sounds/tie.mp3');
 const muteButton = document.getElementById('muteButton');
 
 const loginModal = document.getElementById('loginModal');
@@ -66,7 +67,7 @@ muteButton.addEventListener('click', () => {
     muteButton.textContent = newIcon;
 
     // Mute ou unmute tous les sons
-    [soundClick, soundMine, soundFlag, soundWin, soundLose].forEach(sound => {
+    [soundClick, soundMine, soundFlag, soundWin, soundLose,soundTie].forEach(sound => {
         sound.muted = isMuted;
     });
 });
@@ -240,6 +241,8 @@ function connectWebSocket() {
 
                 if (data.winner.includes('Vous avez gagné')) {
                     soundWin.play();
+                } else if (data.winner.includes('La partie se termine par une égalité!')) {
+                    soundTie.play();
                 } else {
                     soundLose.play();
                 }

@@ -76,7 +76,11 @@ function connectWebSocket() {
             case 'spectator_join_success':
                 createEmptyGrid(data.gridSize.width, data.gridSize.height); // Crée la grille vide
                 document.getElementById('currentTurnDisplay').textContent = `C'est au tour de ${data.currentPlayer} de jouer.`;
-                document.getElementById('gameMessage').textContent = `Partie en cours entre ${data.players.join(' vs ')}.`;
+                document.getElementById('gameMessage').textContent = `Partie en cours entre ${data.players.player1} vs ${data.players.player2}.`;
+                break;
+            case 'game_state': // Nouveau cas pour gérer le message 'game_state'
+                displayGameBoard(data.state.board, data.state.currentTurn); // Affichage du plateau et joueur actuel
+                document.getElementById('currentTurnDisplay').textContent = `C'est au tour de ${data.currentPlayer} de jouer.`;
                 break;
             case 'error':
                 console.error('Erreur: ' + data.message);
