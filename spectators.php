@@ -70,7 +70,7 @@ function connectWebSocket() {
                 displayGameBoard(data.board, data.currentPlayer); // Affichage du plateau de la partie
                 break;
             case 'game_over': // Réponse de fin de partie avec le vainqueur
-                displayWinner(data.winner,data.winner_name, data.board); // Afficher le vainqueur
+                displayWinner(data.winner, data.winner_name, data.board); // Afficher le vainqueur
                 stopAutoRefresh(); // Arrêter le rafraîchissement une fois la partie terminée
                 break;
             case 'spectator_join_success':
@@ -203,7 +203,6 @@ function loadGameState(gameId) {
     }
 }
 
-
 // Fonction pour afficher le plateau de jeu
 function displayGameBoard(board, currentPlayer) {
     const plateauDiv = document.getElementById('plateau');
@@ -257,8 +256,10 @@ function displayGameBoard(board, currentPlayer) {
     gameBoardDiv.appendChild(table);
 
     // Mettre à jour l'affichage du joueur actuel
-    currentPlayerDisplay.textContent = `C'est au tour de ${currentPlayer} de jouer.`;
-    plateauDiv.style.display = 'block';
+    if (currentPlayer) {
+        currentPlayerDisplay.textContent = `C'est au tour de ${currentPlayer} de jouer.`;
+        plateauDiv.style.display = 'block';
+    }
 }
 
 // Fonction pour afficher le vainqueur ou l'égalité
@@ -280,6 +281,8 @@ function displayWinner(winner, winner_name, board) {
     }
 
     resultDiv.style.display = 'block'; // Affiche le div avec le résultat du vainqueur ou d'égalité
+    stopAutoRefresh(); // Arrêter le rafraîchissement une fois le vainqueur affiché
+    startGamesListAutoRefresh(); // Redémarrer le scan des parties en cours
 }
 
 // Fonction pour arrêter le rafraîchissement automatique de l'état de la partie
