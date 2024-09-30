@@ -464,84 +464,49 @@ class MinesweeperServer implements MessageComponentInterface {
     }
 
     protected function handleAcceptInvite(ConnectionInterface $from, $data) {
-        $inviterUsername = $data['inviter'];
-        $invitationId = $data['invitationId']; // Récupérer l'invitationId
-
-        // Vérifier si l'invitation existe dans les invitations en attente
+        $invitationId = $data['invitationId'];
+        
+        // Si l'invitation est valide
         if (isset($this->pendingInvitations[$invitationId])) {
             $invitation = $this->pendingInvitations[$invitationId];
             $gridSize = $invitation['gridSize'];
             $difficulty = intval($invitation['difficulty']);
-
-            // Récupérer les dimensions de la grille
-            list($widthI, $heightI) = explode('x', $gridSize);
-
-            $width = 10;
-            $height = 10;
-
-            //sécurisation du nombre de mine pour éviter de faire peter le serveur.
-            if($widthI <= 100) { $width = $widthI; }
-            if($heightI <= 100) { $height = $heightI; }
-
+    
+            list($width, $height) = explode('x', $gridSize);
+    
             // Calculer le nombre de mines
             $numMines = intval(($width * $height) * ($difficulty / 100));
-
+    
             // Générer le plateau
             $board = $this->generateBoard($width, $height, $numMines);
-
+    
             // Créer la partie
             $gameId = uniqid();
             $this->games[$gameId] = [
-                'players' => [$from->resourceId, $this->pendingInvitations[$invitationId]['inviter']],
+                'players' => [$from->resourceId, $invitation['inviter']],
                 'board' => $board,
                 'currentTurn' => $from->resourceId
             ];
-
-            // Appel à la fonction handleGameStart pour incrémenter le compteur de parties jouées
-            $player1Id = $this->players[$from->resourceId]['id']; // ID du joueur qui a accepté l'invitation
-            $player2Id = $this->players[$this->pendingInvitations[$invitationId]['inviter']]['id']; // ID du joueur qui a envoyé l'invitation
-            $this->handleGameStart($player1Id, $player2Id);  // Incrémenter le compteur de parties jouées
-
+    
             // Envoyer les informations de la partie aux deux joueurs
             foreach ($this->games[$gameId]['players'] as $playerId) {
                 $connection = $this->getConnectionFromPlayerId($playerId);
                 if ($connection) {
+                    // Utilisez une fonction pour masquer les mines et adjacentMines
+                    $maskedBoard = $this->maskMinesForPlayer($board);
+    
                     $connection->send(json_encode([
                         'type' => 'game_start',
                         'game_id' => $gameId,
-                        'board' => $board,
+                        'board' => $maskedBoard,  // N'envoyez pas les mines
                         'turn' => $this->games[$gameId]['currentTurn'],
-                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username'],
-                        'gridSize' => $gridSize,
-                        'difficulty' => $difficulty
-                    ]));
-
-                    $this->logger->info("OUT:" . json_encode([
-                        'type' => 'game_start',
-                        'game_id' => $gameId,
-                        'board' => $board,
-                        'turn' => $this->games[$gameId]['currentTurn'],
-                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username'],
-                        'gridSize' => $gridSize,
-                        'difficulty' => $difficulty
+                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
                     ]));
                 }
             }
-
+    
             // Supprimer l'invitation une fois acceptée
             unset($this->pendingInvitations[$invitationId]);
-
-        } else {
-            // Si l'invitation n'est pas trouvée
-            $from->send(json_encode([
-                'type' => 'error',
-                'message' => 'Invitation introuvable ou expirée.'
-            ]));
-
-            $this->logger->error("OUT:" . json_encode([
-                'type' => 'error',
-                'message' => 'Invitation introuvable ou expirée.'
-            ]));
         }
     }
 
@@ -609,11 +574,6 @@ class MinesweeperServer implements MessageComponentInterface {
                 'type' => 'error',
                 'message' => 'Jeu introuvable'
             ]));
-
-            $this->logger->error("OUT:" . json_encode([
-                'type' => 'error',
-                'message' => 'Jeu introuvable'
-            ]));
             return; 
         }
     
@@ -623,53 +583,25 @@ class MinesweeperServer implements MessageComponentInterface {
                 'type' => 'error',
                 'message' => 'Ce n\'est pas votre tour de jouer.'
             ]));
-
-            $this->logger->info("OUT:" . json_encode([
-                'type' => 'error',
-                'message' => 'Ce n\'est pas votre tour de jouer.'
-            ]));
             return;
         }
     
-        // Vérifier si la cellule n'a pas encore été révélée
-        if (!$this->games[$gameId]['board'][$x][$y]['revealed']) {
-            // Révéler la cellule
-            $this->games[$gameId]['board'][$x][$y]['revealed'] = true;
+        // Révéler la cellule
+        $cell = &$this->games[$gameId]['board'][$x][$y];
+        if (!$cell['revealed']) {
+            $cell['revealed'] = true;
     
             // Si la cellule est une mine, terminer la partie
-            if ($this->games[$gameId]['board'][$x][$y]['mine']) {
-                $this->endGame($from, $gameId, $from->resourceId,['x' => $x, 'y' => $y]);
+            if ($cell['mine']) {
+                $this->endGame($from, $gameId, $from->resourceId, ['x' => $x, 'y' => $y]);
                 return;
             }
     
-            // Si la cellule ne contient pas de mines adjacentes, révéler en cascade les cellules adjacentes
-            if ($this->games[$gameId]['board'][$x][$y]['adjacentMines'] == 0) {
+            // Révéler en cascade si aucune mine adjacente
+            if ($cell['adjacentMines'] == 0) {
                 $this->revealAdjacentCells($this->games[$gameId]['board'], $x, $y);
             }
     
-            
-            if ($this->checkForDraw($gameId)) {
-                // Si toutes les cases sans mines sont révélées, égalité
-                foreach ($this->games[$gameId]['players'] as $playerId) {
-                    $connection = $this->getConnectionFromPlayerId($playerId);
-                    if ($connection) {
-                        $connection->send(json_encode([
-                            'type' => 'game_over',
-                            'winner' => 'Egalité',
-                            'board' => $this->games[$gameId]['board']
-                        ]));
-
-                        $this->logger->info("OUT:" . json_encode([
-                            'type' => 'game_over',
-                            'winner' => 'Egalité',
-                            'board' => $this->games[$gameId]['board']
-                        ]));
-                    }
-                }
-                unset($this->games[$gameId]);
-                return;
-            }
-
             // Passer au prochain joueur
             $this->games[$gameId]['currentTurn'] = $this->getNextPlayer($gameId);
     
@@ -679,23 +611,42 @@ class MinesweeperServer implements MessageComponentInterface {
                 if ($connection) {
                     $connection->send(json_encode([
                         'type' => 'update_board',
-                        'board' => $this->games[$gameId]['board'],
-                        'turn' => $this->games[$gameId]['currentTurn'],
-                        'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
-                    ]));
-
-                    $this->logger->info("OUT:" . json_encode([
-                        'type' => 'update_board',
-                        'board' => $this->games[$gameId]['board'],
+                        'board' => $this->maskMinesForPlayer($this->games[$gameId]['board']), // N'envoie pas l'info mine
                         'turn' => $this->games[$gameId]['currentTurn'],
                         'currentPlayer' => $this->players[$this->games[$gameId]['currentTurn']]['username']
                     ]));
                 }
             }
-            $this->updateSpectators($gameId);
         }
     }
 
+    // Masque l'information sur les mines pour l'envoi au client
+    protected function maskMinesForPlayer($board) {
+        $maskedBoard = [];
+        foreach ($board as $row) {
+            $maskedRow = [];
+            foreach ($row as $cell) {
+                if ($cell['revealed']) {
+                    // Si la cellule est révélée, on envoie toutes les informations
+                    $maskedRow[] = [
+                        'revealed' => true,
+                        'flagged' => $cell['flagged'],
+                        'adjacentMines' => $cell['adjacentMines']
+                    ];
+                } else {
+                    // Si la cellule n'est pas révélée, on n'envoie que l'état 'flagged' et 'revealed'
+                    $maskedRow[] = [
+                        'revealed' => false,
+                        'flagged' => $cell['flagged']
+                        // Pas de 'adjacentMines' envoyé ici
+                    ];
+                }
+            }
+            $maskedBoard[] = $maskedRow;
+        }
+        return $maskedBoard;
+    }
+    
     protected function handlePlaceFlag(ConnectionInterface $from, $data) {
         $gameId = $data['game_id'];
         $x = $data['x'];
