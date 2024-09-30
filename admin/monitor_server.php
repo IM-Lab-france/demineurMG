@@ -12,7 +12,7 @@ use Monolog\Handler\StreamHandler;
 $logger = new Logger('monitor_logger');
 
 // Handler pour les fichiers tournants avec une taille maximale de 5Mo par fichier
-$logFilePath = __DIR__ . '/../../logs/monitor_server.log'; // Chemin du fichier log
+$logFilePath = __DIR__ . '/../logs/monitor_server.log'; // Chemin du fichier log
 $rotatingHandler = new RotatingFileHandler($logFilePath, 0, Logger::DEBUG);
 
 // Handler pour afficher dans le prompt/console
