@@ -460,11 +460,20 @@ table.table td:first-child {
 table.table {
     border: 2px solid #dee2e6;
 }
-
+#gameMessage {
+    font-size: 1.2em;
+    color: #555;
+    margin-top: 20px;
+}
 table.table th, table.table td {
     border: 1px solid #dee2e6;
 }
-
+.transparent-bg {
+    background-color: rgba(255, 255, 255, 0.8); /* Fond blanc avec 80% d'opacité */
+    border-radius: 10px; /* Coins arrondis */
+    padding: 20px; /* Espace interne pour aérer le contenu */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Légère ombre pour faire ressortir le contenu */
+}
 /* Ajustements pour mobile */
 @media (max-width: 768px) {
     table.table th, table.table td {
