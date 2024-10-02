@@ -136,10 +136,27 @@ function logMessage(message) {
 
 // Connexion WebSocket
 function connectWebSocket() {
-    socket = new WebSocket('wss://fozzy.fr:9443'); 
+
+    // Récupérer le nom d'hôte (domaine ou IP)
+    const hostname = window.location.hostname;
+
+    // Déterminer le protocole WebSocket et le port en fonction de l'URL
+    let wsProtocol = 'ws';
+    let wsPort = '8080'; // Par défaut pour les IP locales
+
+    // Si l'hôte est un domaine (fozzy.fr par exemple), utiliser wss (WebSocket sécurisé) et le port 9443
+    if (hostname === 'fozzy.fr') {
+        wsProtocol = 'wss';
+        wsPort = '9443';
+    }
+
+    // Construire l'URL du WebSocket
+    const wsUrl = `${wsProtocol}://${hostname}:${wsPort}`;
+
+    socket = new WebSocket(wsUrl); 
 
     socket.onopen = function() {
-        logMessage('WebSocket ouvert');
+        logMessage('WebSocket ouvert avec ' + wsUrl);
         connected = true;
         hideConnectionError(); // Masquer l'erreur s'il y en a une
         showLoginModal(); // Réafficher le formulaire de login

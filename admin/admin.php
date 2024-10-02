@@ -58,6 +58,29 @@ function getLogFiles($logDirPath) {
     return glob($logDirPath . '*.log');
 }
 
+// Fonction pour obtenir la mémoire et la charge CPU de server.php
+function getServerResourceUsage() {
+    $output = [];
+    // Exécuter la commande shell pour obtenir les informations sur le processus server.php
+    exec("ps -C server.php -o %cpu,%mem --no-headers", $output);
+
+    if (!empty($output)) {
+        // Séparer la charge CPU et la mémoire
+        list($cpuUsage, $memoryUsage) = preg_split('/\s+/', trim($output[0]));
+        return [
+            'cpu' => $cpuUsage,
+            'memory' => $memoryUsage
+        ];
+    }
+    return [
+        'cpu' => 'N/A',
+        'memory' => 'N/A'
+    ];
+}
+
+// Récupérer les informations de mémoire et CPU de server.php
+$serverUsage = getServerResourceUsage();
+
 // Récupérer le fichier de log à afficher
 $currentLogFile = isset($_GET['logfile']) ? $_GET['logfile'] : getLatestLogFile($logDirPath);
 $recentLogs = $currentLogFile ? getRecentLogs($currentLogFile, 10) : ['error' => 'file_missing', 'message' => 'Aucun fichier de logs disponible.'];
@@ -84,6 +107,8 @@ $logFiles = getLogFiles($logDirPath);
             opacity: 0;
         }
     </style>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
 </head>
 <body class="bg-light">
 
@@ -97,9 +122,16 @@ $logFiles = getLogFiles($logDirPath);
                 <h4>Vérification en cours...</h4>
                 <p>Nombre de joueurs connectés : <strong id="connectedPlayers">--</strong></p>
                 <p>Nombre de partie en cours   : <strong id="playersInGame">--</strong></p>
+                <p>Mémoire utilisée par server.php : <strong id="memoryUsage">--</strong></p>
+                <p>Charge CPU utilisée par server.php : <strong id="cpuUsage">--</strong></p>
             </div>
         </div>
-
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <h3>Graphique de la charge CPU et mémoire</h3>
+                <div id="cpuMemoryChart" style="width: 100%; height: 500px;"></div>
+            </div>
+        </div>
         <div class="col-md-6 text-center">
             <h3>Actions</h3>
             <div class="d-flex justify-content-around">
@@ -160,10 +192,73 @@ $logFiles = getLogFiles($logDirPath);
 
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script>
+    
+    // Charger Google Charts
+    google.charts.load('current', {'packages':['corechart']});
+    google.charts.setOnLoadCallback(drawChart);
+
+
+    let chartData = [['Heure', 'CPU (%)', 'Mémoire (%)']]; // Initialisation avec les en-têtes
+    let chart;
+    let data;
+    let options = {
+        title: 'Charge CPU et Mémoire',
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        vAxis: { viewWindow: { min: 0 } }
+    };
     let refreshInterval = 10000; // Par défaut 10 secondes
     let refreshIntervalId;
     let socket = null;
 
+    
+    function drawChart() {
+        data = google.visualization.arrayToDataTable(chartData);
+
+        chart = new google.visualization.LineChart(document.getElementById('cpuMemoryChart'));
+        chart.draw(data, options);
+    }
+
+    // Fonction pour mettre à jour le graphique
+    function updateChart(cpu, memory) {
+        const currentTime = new Date().toLocaleTimeString();
+
+        // Ajouter les nouvelles données au tableau
+        chartData.push([currentTime, parseFloat(cpu), parseFloat(memory)]);
+
+        // Limiter à 20 points de données pour éviter que le graphique devienne trop large
+        if (chartData.length > 20) {
+            chartData.splice(1, 1); // Supprimer l'élément le plus ancien (après les en-têtes)
+        }
+
+        // Redessiner le graphique avec les nouvelles données
+        data = google.visualization.arrayToDataTable(chartData);
+        chart.draw(data, options);
+    }
+
+    // Fonction pour récupérer la charge CPU et mémoire et mettre à jour le graphique
+    function fetchServerUsageAndUpdateChart() {
+        $.ajax({
+            url: 'server_usage.php', // Chemin vers le fichier PHP qui renvoie les informations
+            method: 'GET',
+            success: function(data) {
+                if (data.cpu !== 'N/A' && data.memory !== 'N/A') {
+                    // Mettre à jour le graphique avec les nouvelles valeurs
+                    updateChart(data.cpu, data.memory);
+                    $('#cpuUsage').text(data.cpu + '%');
+                    $('#memoryUsage').text(data.memory + '%');
+                } else {
+                    $('#cpuUsage').text('Indisponible');
+                    $('#memoryUsage').text('Indisponible');
+                }
+                
+            },
+            error: function() {
+                $('#cpuUsage').text('Erreur');
+                $('#memoryUsage').text('Erreur');
+            }
+        });
+    }
     function connectWebSocket() {
         showNotification('Tentative de connexion au WebSocket...', 'info'); // Message indiquant la tentative de connexion
         socket = new WebSocket('wss://fozzy.fr:9443'); // Remplacez l'adresse par celle de votre serveur
@@ -217,7 +312,7 @@ $logFiles = getLogFiles($logDirPath);
     function refreshLogs() {
         console.log("refreshLogs");
         $.ajax({
-            url: './fetch_logs.php?logfile=<?php echo urlencode($currentLogFile); ?>',
+            url: 'fetch_logs.php?logfile=<?php echo urlencode($currentLogFile); ?>',
             method: 'GET',
             success: function(data) {
                 const logContent = document.getElementById('logContent');
@@ -296,7 +391,8 @@ $logFiles = getLogFiles($logDirPath);
     $(document).ready(function() {
         connectWebSocket();
         
-
+        setInterval(fetchServerUsageAndUpdateChart, 10000);
+        
         // Mettre à jour le taux de rafraîchissement lorsque la selectbox change
         document.getElementById('refreshRate').addEventListener('change', updateRefreshRate);
 

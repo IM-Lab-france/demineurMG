@@ -985,7 +985,7 @@ $server = IoServer::factory(
             new MinesweeperServer($logger)
         )
     ),
-    8080, '192.168.1.170'
+    8080, '0.0.0.0'
 );
 
 $server->run();
