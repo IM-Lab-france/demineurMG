@@ -162,8 +162,8 @@ class MinesweeperServer implements MessageComponentInterface {
                 }
 
                 // Retirer une partie jouée à chaque joueur
-                $this->decrementGamesPlayed($this->players[$disconnectedPlayerId]['id']);
-                $this->decrementGamesPlayed($this->players[$otherPlayerId]['id']);
+                //$this->decrementGamesPlayed($this->players[$disconnectedPlayerId]['id']);
+                //$this->decrementGamesPlayed($this->players[$otherPlayerId]['id']);
 
                 // Supprimer la partie
                 unset($this->games[$gameId]);
@@ -507,6 +507,9 @@ class MinesweeperServer implements MessageComponentInterface {
             $inviterResourceId = $invitation['inviter'];  // resourceId du joueur qui a envoyé l'invitation
             $inviteeResourceId = $from->resourceId;       // resourceId du joueur qui a accepté l'invitation
     
+            // Mettre a jour la base de donnée pour le nombre de parties jouées
+            $this->handleGameStart($inviterResourceId, $inviteeResourceId);
+
             // Tirer un nombre aléatoire entre 0 et 1
             $randomNumber = rand(0, 100) / 100;
     
@@ -564,7 +567,7 @@ class MinesweeperServer implements MessageComponentInterface {
     }
 
     protected function handleGameOver($winnerId) {
-
+        echo "-------------------------".$winnerId."---------------------------";
         $db = new Database();
         
         // Incrémenter le compteur de victoires pour le gagnant
@@ -801,7 +804,7 @@ class MinesweeperServer implements MessageComponentInterface {
             }
             $winnerName = $this->players[$winnerId]['username']; // Récupérer le nom du gagnant
         }
-        
+        $this->handleGameOver($winnerId);
         // Révéler toutes les cellules du plateau
         $this->revealAllCells($this->games[$gameId]['board']);
         
@@ -815,7 +818,8 @@ class MinesweeperServer implements MessageComponentInterface {
                     'winner' => $message,
                     'winner_name' => $winnerName,  // Envoi du nom du gagnant ou "Egalité"
                     'board' => $this->games[$gameId]['board'], // Envoyer le plateau complet révélé
-                    'losingCell' => $losingCell
+                    'losingCell' => $losingCell,
+                    'players' => $this->getConnectedPlayers()
                 ]));
             }
         }

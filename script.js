@@ -469,11 +469,12 @@ function displayGameBoard(board, losingCell = null) {
             cellInner.classList.add('cell-inner');
 
             const cellFront = document.createElement('div');
-            cellFront.classList.add('cell-front');
+            cellFront.classList.add('cell-front'); // Côté non révélé (mer)
 
             const cellBack = document.createElement('div');
-            cellBack.classList.add('cell-back');
+            cellBack.classList.add('cell-back'); // Côté révélé (fond marin)
 
+            // Si la cellule est révélée
             if (cell.revealed) {
                 td.classList.add('revealed');
                 if (cell.mine) {
@@ -486,11 +487,11 @@ function displayGameBoard(board, losingCell = null) {
                     }
                 } else if (cell.adjacentMines > 0) {
                     cellBack.textContent = cell.adjacentMines; // Afficher le nombre de mines adjacentes
-
-                    // Ajouter une classe pour la couleur du nombre de mines
+                    // Ajouter une classe pour la couleur du nombre de mines (et le cercle)
                     cellBack.classList.add(`mine-number-${cell.adjacentMines}`);
                 }
             } else {
+                // Si la cellule est marquée par un drapeau
                 if (cell.flagged) {
                     td.classList.add('cell-flagged'); // Ajouter la classe pour les drapeaux
                     cellFront.textContent = '🚩'; // Afficher le drapeau
@@ -515,6 +516,7 @@ function displayGameBoard(board, losingCell = null) {
     });
     gameBoardDiv.appendChild(table);
 }
+
 
 async function handleRegister() {
     const username = document.getElementById('registerUsername').value;

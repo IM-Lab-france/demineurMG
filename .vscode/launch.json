@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Listen for Xdebug on remote server",
+            "type": "php",
+            "request": "launch",
+            "port": 9003,                    // Port utilisé par Xdebug 3
+            "pathMappings": {
+                "/var/www/html": "${workspaceFolder}"  // Mapping entre les chemins distants et locaux
+            }
+        },
+        {
+            "name": "Python: Script avec paramètres",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/ia/minesweeper_ai_auto.py",  // Chemin de ton script Python
+            "args": ["--grid_size=20x20", "--ai_level=notfun", "--pause=1500","--learn","--invite"],  // Arguments que tu veux passer
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/ia/venv/bin/python" 
+        }
+    ]
+}

@@ -27,6 +27,10 @@ $logger = new Logger('monitor_server');
 // Définir le répertoire des fichiers de log
 $logDirPath = __DIR__ . '/../logs/';
 
+// gestion des IA
+$iaConfigFile = '/var/www/html/ia/deminium/ia_config.json';
+$iaConfigs = json_decode(file_get_contents($iaConfigFile), true);
+
 // Fonction pour obtenir le fichier de log le plus récent
 function getLatestLogFile($logDirPath) {
     $files = glob($logDirPath . '*.log');
@@ -47,7 +51,7 @@ function getRecentLogs($filePath, $lines = 10) {
 
     $file = @file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES); // Lire les lignes sans les sauts de ligne
     if ($file === false) {
-        return ['error' => 'file_unreadable', 'message' => 'Impossible de lire le fichier de logs. Problème d\'accès ou de permission.'];
+        return ['error' => 'file_unreadable', 'message' => 'Impossible de lire le fichier de logs. Problème d accès ou de permission.'];
     }
 
     return array_slice($file, -$lines); // Récupérer les dernières lignes
@@ -97,18 +101,7 @@ $logFiles = getLogFiles($logDirPath);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Gestion du Serveur</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* Ajout pour la disparition progressive des popins */
-        .fade-out {
-            opacity: 1;
-            transition: opacity 2s ease-out;
-        }
-        .fade-out.fade {
-            opacity: 0;
-        }
-    </style>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body class="bg-light">
 
@@ -140,7 +133,60 @@ $logFiles = getLogFiles($logDirPath);
             </div>
         </div>
     </div>
+    <div class="container mt-5">
+        <h3>Gestion des IA</h3>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Nom de l'IA</th>
+                    <th>Modèle</th>
+                    <th>Statut</th>
+                    <th>État de lancement</th>
+                    <th>Actions</th>
+                    <th>Logs</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($iaConfigs as $ia): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($ia['name']) ?></td>
+                        <td><?= htmlspecialchars($ia['model']) ?></td>
+                        <td><?= htmlspecialchars($ia['status']) ?></td>
+                        <td><?= htmlspecialchars($ia['launch_status']) ?></td>
+                        <td>
+                            <?php if ($ia['status'] === 'idle'): ?>
+                                <button onclick="manageIA('start', '<?= $ia['name'] ?>')" class="btn btn-success">Lancer</button>
+                            <?php elseif ($ia['status'] === 'running'): ?>
+                                <button onclick="manageIA('stop', '<?= $ia['name'] ?>')" class="btn btn-danger">Arrêter</button>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <button onclick="viewLogs('<?= $ia['name'] ?>')" class="btn btn-info">Voir les logs</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
+        <div id="logModal" class="modal fade" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Logs de l'IA</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <pre id="logContent" class="bg-dark text-light p-3" style="max-height: 400px; overflow-y: auto;"></pre>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="row mt-5">
         <div class="col-md-12">
             <h3>Derniers Logs</h3>
@@ -191,216 +237,6 @@ $logFiles = getLogFiles($logDirPath);
 </div>
 
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script>
-    
-    // Charger Google Charts
-    google.charts.load('current', {'packages':['corechart']});
-    google.charts.setOnLoadCallback(drawChart);
-
-
-    let chartData = [['Heure', 'CPU (%)', 'Mémoire (%)']]; // Initialisation avec les en-têtes
-    let chart;
-    let data;
-    let options = {
-        title: 'Charge CPU et Mémoire',
-        curveType: 'function',
-        legend: { position: 'bottom' },
-        vAxis: { viewWindow: { min: 0 } }
-    };
-    let refreshInterval = 10000; // Par défaut 10 secondes
-    let refreshIntervalId;
-    let socket = null;
-
-    
-    function drawChart() {
-        data = google.visualization.arrayToDataTable(chartData);
-
-        chart = new google.visualization.LineChart(document.getElementById('cpuMemoryChart'));
-        chart.draw(data, options);
-    }
-
-    // Fonction pour mettre à jour le graphique
-    function updateChart(cpu, memory) {
-        const currentTime = new Date().toLocaleTimeString();
-
-        // Ajouter les nouvelles données au tableau
-        chartData.push([currentTime, parseFloat(cpu), parseFloat(memory)]);
-
-        // Limiter à 20 points de données pour éviter que le graphique devienne trop large
-        if (chartData.length > 20) {
-            chartData.splice(1, 1); // Supprimer l'élément le plus ancien (après les en-têtes)
-        }
-
-        // Redessiner le graphique avec les nouvelles données
-        data = google.visualization.arrayToDataTable(chartData);
-        chart.draw(data, options);
-    }
-
-    // Fonction pour récupérer la charge CPU et mémoire et mettre à jour le graphique
-    function fetchServerUsageAndUpdateChart() {
-        $.ajax({
-            url: 'server_usage.php', // Chemin vers le fichier PHP qui renvoie les informations
-            method: 'GET',
-            success: function(data) {
-                if (data.cpu !== 'N/A' && data.memory !== 'N/A') {
-                    // Mettre à jour le graphique avec les nouvelles valeurs
-                    updateChart(data.cpu, data.memory);
-                    $('#cpuUsage').text(data.cpu + '%');
-                    $('#memoryUsage').text(data.memory + '%');
-                } else {
-                    $('#cpuUsage').text('Indisponible');
-                    $('#memoryUsage').text('Indisponible');
-                }
-                
-            },
-            error: function() {
-                $('#cpuUsage').text('Erreur');
-                $('#memoryUsage').text('Erreur');
-            }
-        });
-    }
-    function connectWebSocket() {
-        showNotification('Tentative de connexion au WebSocket...', 'info'); // Message indiquant la tentative de connexion
-        socket = new WebSocket('wss://fozzy.fr:9443'); // Remplacez l'adresse par celle de votre serveur
-
-        socket.onopen = function() {
-            showNotification('Connexion WebSocket réussie.', 'success');
-            console.log('WebSocket connecté');
-            socket.send(JSON.stringify({ type: 'get_player_count' }));
-            startAutoRefresh();
-        };
-
-        socket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === 'player_count') {
-                updatePlayerCount(data.connectedPlayers, data.gamesInProgress || 0);
-            }
-        };
-
-        socket.onerror = function() {
-            showNotification('Erreur de connexion WebSocket. Le serveur est peut-être hors ligne.', 'danger');
-            updateServerStatus('offline');
-        };
-
-        socket.onclose = function() {
-            showNotification('WebSocket déconnecté. Tentative de reconnexion...', 'warning');
-            updateServerStatus('offline');
-            setTimeout(connectWebSocket, 5000); // Réessayer après 5 secondes
-        };
-    }
-
-    function updatePlayerCount(connectedPlayers, playersInGame) {
-        const playersCount = document.getElementById('connectedPlayers');
-        const playersInGameCount = document.getElementById('playersInGame');
-        
-        playersCount.textContent = connectedPlayers;
-        playersInGameCount.textContent = playersInGame;
-        updateServerStatus('online');
-    }
-
-    function updateServerStatus(status) {
-        const serverStatusDiv = document.getElementById('serverStatus');
-        if (status === 'online') {
-            serverStatusDiv.className = 'alert alert-success';
-            serverStatusDiv.querySelector('h4').textContent = 'En ligne';
-        } else {
-            serverStatusDiv.className = 'alert alert-danger';
-            serverStatusDiv.querySelector('h4').textContent = 'Hors ligne';
-        }
-    }
-
-    function refreshLogs() {
-        console.log("refreshLogs");
-        $.ajax({
-            url: 'fetch_logs.php?logfile=<?php echo urlencode($currentLogFile); ?>',
-            method: 'GET',
-            success: function(data) {
-                const logContent = document.getElementById('logContent');
-                logContent.innerHTML = data;
-            }
-        });
-    }
-
-    function requestPlayerCount() {
-        console.log("requestPlayerCount");
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'get_player_count' }));
-        }
-    }
-
-    function startAutoRefresh() {
-        console.log("startAutoRefresh");
-        refreshIntervalId = setInterval(() => {
-            requestPlayerCount();
-            refreshLogs();
-        }, refreshInterval);
-    }
-
-    function updateRefreshRate() {
-        console.log("updateRefreshRate");
-        clearInterval(refreshIntervalId);
-        refreshInterval = parseInt(document.getElementById('refreshRate').value);
-        startAutoRefresh(); // Redémarrer l'intervalle avec le nouveau délai
-    }
-
-    // Afficher une popin de notification qui disparaît progressivement
-    function showNotification(message, type = 'info') {
-        const notificationPopin = document.getElementById('notificationPopin');
-        notificationPopin.className = 'alert alert-' + type + ' fade-out'; // Définir la classe Bootstrap pour l'alerte
-        document.getElementById('notificationMessage').textContent = message;
-        notificationPopin.style.display = 'block';
-
-        setTimeout(() => {
-            notificationPopin.classList.add('fade'); // Démarrer la disparition progressive
-            setTimeout(() => {
-                notificationPopin.style.display = 'none'; // Masquer après la disparition
-            }, 2000);
-        }, 2000);
-    }
-
-    // Appels AJAX pour démarrer ou arrêter le serveur sans recharger la page
-    function startServer() {
-        $.ajax({
-            url: 'start_server.php',
-            method: 'POST',
-            success: function() {
-                showNotification('Serveur démarré avec succès.', 'success');
-                refreshLogs(); // Rafraîchir les logs après l'action
-            },
-            error: function() {
-                showNotification('Erreur lors du démarrage du serveur.', 'danger');
-            }
-        });
-    }
-
-    function stopServer() {
-        $.ajax({
-            url: 'stop_server.php',
-            method: 'POST',
-            success: function() {
-                showNotification('Serveur arrêté avec succès.', 'warning');
-                refreshLogs(); // Rafraîchir les logs après l'action
-            },
-            error: function() {
-                showNotification('Erreur lors de l\'arrêt du serveur.', 'danger');
-            }
-        });
-    }
-
-    // Rafraîchir l'état du serveur et les logs au démarrage
-    $(document).ready(function() {
-        connectWebSocket();
-        
-        setInterval(fetchServerUsageAndUpdateChart, 10000);
-        
-        // Mettre à jour le taux de rafraîchissement lorsque la selectbox change
-        document.getElementById('refreshRate').addEventListener('change', updateRefreshRate);
-
-        // Attacher les événements pour démarrer/arrêter le serveur
-        document.getElementById('startServer').addEventListener('click', startServer);
-        document.getElementById('stopServer').addEventListener('click', stopServer);
-    });
-</script>
-
+<script src="admin.js"></script>
 </body>
 </html>

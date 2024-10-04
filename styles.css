@@ -465,6 +465,35 @@ table.table th, table.table td {
     border: 1px solid #dee2e6;
 }
 
+ /*Style pour les cases non révélées (mer)*/
+.cell-front {
+    background-image: url('mer.png'); 
+    background-size: cover; 
+    background-position: center;
+}
+
+/*
+.cell-back {
+    background-image: url('fond.png'); 
+    background-size: calc(100% * NUMBER_OF_COLUMNS) calc(100% * NUMBER_OF_ROWS); 
+    background-position: var(--pos-x) var(--pos-y); 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+} */
+
+/* 
+.mine-number-1, .mine-number-2, .mine-number-3, .mine-number-4, .mine-number-5, .mine-number-6, .mine-number-7, .mine-number-8 {
+    position: relative; 
+    z-index: 2; 
+}
+*/
+/* Style pour les drapeaux */
+.flag {
+    position: relative;
+    z-index: 2; /* S'assure que le drapeau est au-dessus de l'image */
+}
+
 /* Ajustements pour mobile */
 @media (max-width: 768px) {
     table.table th, table.table td {

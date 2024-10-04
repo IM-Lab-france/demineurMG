@@ -1,0 +1,24 @@
+[2024-10-03T15:21:28.387548+02:00] minesweeper_logger.INFO: MinesweeperServer started! [] []
+PHP Fatal error:  Uncaught UnexpectedValueException: The stream or file "/var/www/html/../logs/minesweeper-2024-10-03.log" could not be opened in append mode: Failed to open stream: Permission denied
+The exception occurred while attempting to log: MinesweeperServer started! in /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/StreamHandler.php:140
+Stack trace:
+#0 /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/RotatingFileHandler.php(113): Monolog\Handler\StreamHandler->write()
+#1 /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/AbstractProcessingHandler.php(44): Monolog\Handler\RotatingFileHandler->write()
+#2 /var/www/html/vendor/monolog/monolog/src/Monolog/Logger.php(390): Monolog\Handler\AbstractProcessingHandler->handle()
+#3 /var/www/html/vendor/monolog/monolog/src/Monolog/Logger.php(606): Monolog\Logger->addRecord()
+#4 /var/www/html/server.php(62): Monolog\Logger->info()
+#5 /var/www/html/server.php(989): MinesweeperServer->__construct()
+#6 {main}
+  thrown in /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/StreamHandler.php on line 140
+
+Fatal error: Uncaught UnexpectedValueException: The stream or file "/var/www/html/../logs/minesweeper-2024-10-03.log" could not be opened in append mode: Failed to open stream: Permission denied
+The exception occurred while attempting to log: MinesweeperServer started! in /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/StreamHandler.php:140
+Stack trace:
+#0 /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/RotatingFileHandler.php(113): Monolog\Handler\StreamHandler->write()
+#1 /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/AbstractProcessingHandler.php(44): Monolog\Handler\RotatingFileHandler->write()
+#2 /var/www/html/vendor/monolog/monolog/src/Monolog/Logger.php(390): Monolog\Handler\AbstractProcessingHandler->handle()
+#3 /var/www/html/vendor/monolog/monolog/src/Monolog/Logger.php(606): Monolog\Logger->addRecord()
+#4 /var/www/html/server.php(62): Monolog\Logger->info()
+#5 /var/www/html/server.php(989): MinesweeperServer->__construct()
+#6 {main}
+  thrown in /var/www/html/vendor/monolog/monolog/src/Monolog/Handler/StreamHandler.php on line 140
